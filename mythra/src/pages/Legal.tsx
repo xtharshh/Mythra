@@ -20,7 +20,7 @@ function Shell({ kicker, title, updated, children }: { kicker: string; title: st
 export function Terms() {
   return (
     <Shell kicker="MYTHRA · terms of service" title="Terms of play." updated="September 2026">
-      <p><b>1. What this is.</b> MYTHRA is a proprietary browser mystery game by HARSH KUMAR. Playing the hosted game is permitted; everything else — copying, distributing, modifying, claiming it as your own — requires written permission (see LICENSE).</p>
+      <p><b>1. What this is.</b> MYTHRA is a proprietary browser mystery game by xtharshh. Playing the hosted game is permitted; everything else — copying, distributing, modifying, claiming it as your own — requires written permission (see LICENSE).</p>
       <p><b>2. Accounts.</b> You may play as a guest, sign in with email, or sign in with Discord. You are responsible for keeping your sign-in credentials safe.</p>
       <p><b>3. Your stories.</b> Worlds and continuations you create remain yours to show off (milestone cards, share codes). The engine, code, art, and platform remain the owner's property.</p>
       <p><b>4. Fair play.</b> No cheating, scraping, abusing the APIs, harassing fellow solvers, or uploading unlawful or hateful content. Contributions go through review for a reason.</p>

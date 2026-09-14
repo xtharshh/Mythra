@@ -12,7 +12,7 @@ Browser 3D mystery game engine: any genre, any story in — interactive realisti
 
 ## License — proprietary, all rights reserved
 
-MYTHRA is NOT open source. See [`LICENSE`](../LICENSE) at repo root: no use, copying, distribution, or derivatives without HARSH KUMAR's written permission. Playing the hosted game is allowed; everything else needs a yes in writing.
+MYTHRA is NOT open source. See [`LICENSE`](../LICENSE) at repo root: no use, copying, distribution, or derivatives without xtharshh's written permission. Playing the hosted game is allowed; everything else needs a yes in writing.
 
 ## Setup
 

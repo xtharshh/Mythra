@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/license-proprietary_(all_rights_reserved)-red?style=for-the-badge)
 [![Coffee](https://img.shields.io/badge/buy_me_a_coffee-xtharshh-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/xtharshh)
 
-> **MYTHRA** is a proprietary 3D mystery-game engine by **HARSH KUMAR**.
+> **MYTHRA** is a proprietary 3D mystery-game engine by **xtharshh**.
 > Type a story brief — walk it as a living world: realistic hardware, correct
 > per-object animations, voice narration, multiplayer explorers, checkpoints,
 > leaderboards, and milestone brag cards.
@@ -78,6 +78,6 @@ Fuel the next expedition: **[buymeacoffee.com/xtharshh](https://buymeacoffee.com
 ### ⚖️ License — proprietary, all rights reserved
 
 MYTHRA is **NOT open source**. See [`LICENSE`](./LICENSE): no use, copying,
-distribution, or derivatives — and no ownership claims — without HARSH KUMAR's
+distribution, or derivatives — and no ownership claims — without xtharshh's
 written permission. Playing the hosted game is allowed; everything else needs
 a yes in writing. 🎮 Build worlds. Give credit.

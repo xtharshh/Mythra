@@ -144,7 +144,7 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
       </Routes>
       </RouteBoundary>
       <footer style={{ borderTop: "1px solid var(--border)", padding: "14px 22px", display: "flex", gap: 16, alignItems: "center", fontSize: 12 }} className="muted">
-        <span>© 2026 HARSH KUMAR · MYTHRA — all rights reserved</span>
+        <span>© 2026 xtharshh · MYTHRA — all rights reserved</span>
         <span style={{ flex: 1 }} />
         <Link to="/terms">Terms</Link>
         <Link to="/privacy">Privacy</Link>
