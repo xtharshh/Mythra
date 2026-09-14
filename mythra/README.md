@@ -27,6 +27,22 @@ npm test         # vitest, all green
 npm run build    # production build
 ```
 
+### Connect the API (multiplayer on)
+
+The game plays fully offline by default. To light up shared races,
+presence avatars, the username leaderboard, and cloud saves:
+
+```bash
+cd mythra
+cp .env.example .env   # VITE_API_URL=http://localhost:4000 (already set)
+npm run dev:api        # terminal 1 — MYTHRA API on :4000
+npm run dev            # terminal 2 — game on :5173 (restart after editing .env)
+```
+
+Then sign in (nav → Sign in). Without `VITE_API_URL`, every API call fails
+soft to local-only mode: solo play, local leaderboard counts, invite links
+still carry the whole tale.
+
 No AI key needed — stamp worlds keyless with Mock, or bring OpenAI / Anthropic / Gemini / OpenRouter / Groq / Mistral / Ollama / custom keys on the Planner. Demo world ships in `src/data/demo-world.json`.
 
 ## Play the loop
