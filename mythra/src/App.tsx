@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Link, Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Create from "./pages/Create";
 import Explore from "./pages/Explore";
@@ -12,8 +13,38 @@ import { applyTheme, themeForWorld } from "./theme/theme";
 import demo from "./data/demo-world.json";
 import type { World } from "./types";
 
-export default function App() {
-  const loadLibrary = useLumen((s) => s.loadLibrary);
+/** Last-resort safety net: a crashed route shows a message, never a blank page. */
+class RouteBoundary extends Component<{ children: ReactNode }, { failed: string | null }> {
+  state = { failed: null as string | null };
+  static getDerivedStateFromError(e: unknown): { failed: string | null } {
+    return { failed: e instanceof Error ? e.message : "Something broke rendering this page." };
+  }
+  render(): ReactNode {
+    if (this.state.failed) {
+      return (
+        <div className="layout">
+          <div className="card">
+            <div className="case-kicker">Field hospital · render crash caught</div>
+            <h2 className="case-title" style={{ fontSize: 28 }}>This view <em>crashed.</em></h2>
+            <p className="muted">{this.state.failed}</p>
+            <p className="muted" style={{ fontSize: 13 }}>
+              If you just pulled new code: stop the dev server, delete{" "}
+              <span className="dossier-meta">mythra/node_modules/.vite</span>, run{" "}
+              <span className="dossier-meta">npm run dev</span> again, then hard-refresh (Ctrl+Shift+R).
+            </p>
+            <div className="row" style={{ marginTop: 10 }}>
+              <button className="btn" onClick={() => window.location.reload()}>Reload</button>
+              <Link className="btn-ghost" to="/">Back to Dossier</Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function App() {  const loadLibrary = useLumen((s) => s.loadLibrary);
   const loadVoiceNotes = useLumen((s) => s.loadVoiceNotes);
   const loadCheckpoints = useLumen((s) => s.loadCheckpoints);
   const activeWorld = useLumen((s) => s.world);
@@ -43,6 +74,7 @@ export default function App() {
         <span>Welcome to MYTHRA</span>
         {theme.ticker.map((t) => <span key={t}>{t}</span>)}
       </div>
+      <RouteBoundary>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/explore" element={<Explore />} />
@@ -50,6 +82,7 @@ export default function App() {
         <Route path="/create" element={<Create />} />
         <Route path="/studio" element={<Studio />} />
       </Routes>
+      </RouteBoundary>
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
     </Router>
   );
