@@ -16,6 +16,29 @@ export function apiBase(): string | null {
 
 export const apiOn = (): boolean => apiBase() !== null;
 
+/** Round-trip latency to the API in ms, or null when unreachable. */
+export async function pingApi(): Promise<number | null> {
+  const base = apiBase();
+  if (!base) return null;
+  try {
+    const t0 = performance.now();
+    const res = await fetch(`${base}/health`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return Math.round(performance.now() - t0);
+  } catch {
+    return null;
+  }
+}
+
+/** Human ping for the station chip. Pure. */
+export function formatPing(ms: number | null, connected: boolean): string {
+  if (!connected) return "local";
+  if (ms === null) return "offline";
+  if (ms < 100) return `${ms}ms · fast`;
+  if (ms < 400) return `${ms}ms`;
+  return `${ms}ms · slow`;
+}
+
 export function apiToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);

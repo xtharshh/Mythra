@@ -20,4 +20,15 @@ describe("theme engine (theme-first site)", () => {
     expect(t.key).toBe("mars");
     expect(t.sol).toMatch(/SOL/);
   });
+
+  it("lets the story's own branding win (station changes per tale)", () => {
+    const custom = structuredClone(world);
+    custom.branding = { station: "LIGHTHOUSE POST", sol: "NIGHT 003", tagline: "Haunted coast · case file 7" };
+    const t = themeForWorld(custom);
+    expect(t.station).toBe("LIGHTHOUSE POST");
+    expect(t.sol).toBe("NIGHT 003");
+    expect(t.tagline).toMatch(/case file 7/);
+    // same Mars dust, new name
+    expect(t.ground).toBe(themeForWorld(world).ground);
+  });
 });

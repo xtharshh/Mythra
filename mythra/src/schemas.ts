@@ -172,5 +172,10 @@ export const worldSchema = z.object({
   endings: z.array(z.object({ id: z.string(), title: z.string(), description: z.string(), condition: conditionSchema, secret: z.boolean() })),
   permissions: z.object({ allowVisitors: z.boolean(), allowClueCreation: z.boolean(), allowBuilding: z.boolean(), allowMissionCreation: z.boolean(), allowStoryChanges: z.boolean(), contributionMode: z.enum(["open","approval_required","trusted_users_only","owner_only"]) }),
   settings: z.object({ sprintEnabled: z.boolean(), worldBounds: z.number().positive() }),
+  branding: z.object({
+    station: z.string().min(1).max(24),
+    sol: z.string().min(1).max(16),
+    tagline: z.string().min(1).max(80),
+  }).optional(),
   createdAt: z.string(), updatedAt: z.string(),
 });

@@ -200,6 +200,7 @@
     { "id": "end_lore", "title": "Message from Earth", "description": "A delayed message reframes everything.", "condition": { "type": "clue_discovered", "clueId": "clue_terminal" }, "secret": false }
   ],
   "permissions": { "allowVisitors": true, "allowClueCreation": true, "allowBuilding": false, "allowMissionCreation": false, "allowStoryChanges": false, "contributionMode": "approval_required" },
+  "branding": { "station": "AURORA BASE", "sol": "SOL 442", "tagline": "Silent Mars Colony · case file 442" },
   "settings": { "sprintEnabled": true, "worldBounds": 60 },
   "createdAt": "2026-09-13T00:00:00Z",
   "updatedAt": "2026-09-13T00:00:00Z"

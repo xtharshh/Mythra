@@ -62,19 +62,25 @@ const FALLBACKS: Record<string, ThemeTokens> = {
 
 export function themeForWorld(world: World | null | undefined): ThemeTokens {
   const t = (world?.environment?.type ?? world?.theme ?? "mars") as string;
-  if (t === "mars") return MARS;
-  if (FALLBACKS[t]) return FALLBACKS[t];
-  const env = world?.environment;
-  if (!env) return MARS;
-  return {
-    ...MARS,
-    key: "default",
-    accent: "#ffb45e",
-    accent2: env.secondaryColor ?? "#8b5cf6",
-    sky: env.skyColor ?? MARS.sky,
-    fog: env.fogColor ?? MARS.fog,
-    ground: env.primaryColor ?? MARS.ground,
-  };
+  const base: ThemeTokens = (() => {
+    if (t === "mars") return MARS;
+    if (FALLBACKS[t]) return FALLBACKS[t];
+    const env = world?.environment;
+    if (!env) return MARS;
+    return {
+      ...MARS,
+      key: "default",
+      accent: "#ffb45e",
+      accent2: env.secondaryColor ?? "#8b5cf6",
+      sky: env.skyColor ?? MARS.sky,
+      fog: env.fogColor ?? MARS.fog,
+      ground: env.primaryColor ?? MARS.ground,
+    };
+  })();
+  // the story's own ident wins over theme defaults — stations change per tale
+  const b = world?.branding;
+  if (!b) return base;
+  return { ...base, station: b.station, sol: b.sol, tagline: b.tagline };
 }
 
 /** Push theme vars onto <html> so index.css paints theme-first. */

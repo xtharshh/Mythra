@@ -72,13 +72,6 @@ button, input, select, textarea { font: inherit; }
   text-transform: uppercase; letter-spacing: 1.5px; font-size: 12px;
 }
 .nav b { letter-spacing: 2px; color: var(--th-accent); display: inline-flex; gap: 8px; align-items: center; }
-.nav b::before {
-  content: ""; width: 26px; height: 26px; border-radius: 50%;
-  background: var(--th-planet);
-  border: 2px solid var(--th-accent);
-  box-shadow: 0 0 12px rgba(255, 107, 53, 0.6);
-  display: inline-block;
-}
 .nav a { color: var(--muted); border: 1px solid transparent; padding: 4px 10px; border-radius: 6px; }
 .nav a:hover { color: var(--th-accent); border-color: var(--border); }
 .station-sol {

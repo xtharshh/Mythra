@@ -85,6 +85,7 @@ export function buildWorldPrompt(input: WorldGenerationInput): { system: string;
     "clues[]:{id,title,text,type,locationId,discoveryMethod(inspect|collect|solve|talk|observe|activate|combine),visibility:'visible',importance,misleading:false,optional},",
     "clueConnections[],puzzles[]:{id,title,description,type(sequence|logic|code|symbol|circuit|map|dialogue|resource|spatial|observation),difficulty,locationId,relatedClueIds[],inputs[{id,label,kind}],hints[{order,text}],rewards[],solutionHash('hash:'+lowercase solution),solution},",
     "endings[]:{id,title,description,condition,secret:false}, permissions(all false except allowVisitors true, contributionMode 'approval_required'), settings:{sprintEnabled:true,worldBounds:60},",
+    "branding:{station:'SHORT BASE NAME, ≤18 chars, named for THIS story — never AURORA BASE unless Mars',sol:'mission clock like SOL 443',tagline:'≤80 chars, story hook + case file no.'},",
     "createdAt/updatedAt ISO now}.",
     "Rules: ids unique; every locationId/objectId/missionId/clueId/puzzleId/itemId referenced MUST exist; coordinates within ±55; keep it tight and playable.",
   ].join("\n");

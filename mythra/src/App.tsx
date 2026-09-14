@@ -7,7 +7,9 @@ import Landing from "./pages/Landing";
 import Play from "./pages/Play";
 import Studio from "./pages/Studio";
 import { AuthButton, LoginModal } from "./components/Login";
+import { Logo } from "./components/Logo";
 import { SupportButton } from "./components/Support";
+import { apiOn, formatPing, pingApi } from "./api/client";
 import { useLumen } from "./state/store";
 import { applyTheme, themeForWorld } from "./theme/theme";
 import demo from "./data/demo-world.json";
@@ -49,7 +51,28 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
   const loadCheckpoints = useLumen((s) => s.loadCheckpoints);
   const activeWorld = useLumen((s) => s.world);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [ping, setPing] = useState<number | null>(null);
+  const connected = apiOn();
   useEffect(() => { loadLibrary(); loadVoiceNotes(); loadCheckpoints(); }, [loadLibrary, loadVoiceNotes, loadCheckpoints]);
+
+  // live API ping for the station chip — null = local/offline
+  useEffect(() => {
+    if (!connected) {
+      setPing(null);
+      return;
+    }
+    let alive = true;
+    const probe = async () => {
+      const ms = await pingApi();
+      if (alive) setPing(ms);
+    };
+    void probe();
+    const id = window.setInterval(() => void probe(), 10000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [connected]);
 
   const theme = useMemo(
     () => themeForWorld(activeWorld ?? (demo as unknown as World)),
@@ -60,7 +83,7 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
   return (
     <Router>
       <nav className="nav">
-        <b>MYTHRA · {theme.station}</b>
+        <b><Logo size={30} /> MYTHRA · {theme.station}</b>
         <Link to="/">Dossier</Link>
         <Link to="/explore">Archive</Link>
         <Link to="/play">Surface</Link>
@@ -68,7 +91,9 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
         <Link to="/studio">Control</Link>
         <AuthButton onSignIn={() => setLoginOpen(true)} />
         <SupportButton compact />
-        <span className="station-sol"><span className="blink" />{theme.sol} · {theme.tagline}</span>
+        <span className="station-sol" title={connected ? "Live link to the MYTHRA API (10s ping)" : "Offline — playing local"}>
+          <span className="blink" />{theme.sol} · {theme.tagline} · ping {formatPing(ping, connected)}
+        </span>
       </nav>
       <div className="ticker" aria-hidden>
         <span>Welcome to MYTHRA</span>

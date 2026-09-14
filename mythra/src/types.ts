@@ -231,6 +231,12 @@ export interface World {
   endings: WorldEnding[];
   permissions: WorldPermissions;
   settings: WorldSettings;
+  /** Station ident worn in the nav + ticker — follows the story, not the engine. */
+  branding?: {
+    station: string;
+    sol: string;
+    tagline: string;
+  };
   /** Approved player contributions appended to the living story (§18). */
   communityLog?: CommunityEntry[];
   createdAt: string;
