@@ -46,7 +46,7 @@ Enter → clue → resource → puzzle → mission → hidden location → secre
 <summary><b>🚀 Run it</b></summary>
 
 ```bash
-cd lumen
+cd mythra
 npm install
 npm run dev        # game  → http://localhost:5173
 npm run dev:api    # API   → http://localhost:4000  (optional; game plays offline without it)

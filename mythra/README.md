@@ -1,4 +1,4 @@
-# MYTHRA · `lumen/` app — forge any story into a playable world
+# MYTHRA · `mythra/` app — forge any story into a playable world
 
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=20&pause=1000&color=FFB45E&width=600&lines=Inspect.+Collect.+Solve.;Unlock+the+hidden+zone.;Mint+the+milestone+card.)](https://github.com/xtharshh/apexus-trending)
 
@@ -18,7 +18,7 @@ MYTHRA is NOT open source. See [`LICENSE`](../LICENSE) at repo root: no use, cop
 Requirements: Node.js 20+, npm.
 
 ```bash
-cd lumen
+cd mythra
 npm install
 npm run dev      # game → http://localhost:5173
 npm run dev:api  # API  → http://localhost:4000 (multiplayer, leaderboard, cloud saves)
