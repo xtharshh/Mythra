@@ -20,9 +20,10 @@ import { triggerObject } from "../three/effects";
 import type { PeerPresence } from "../three/LumenScene";
 import { api, apiOn } from "../api/client";
 import { loadSession } from "../auth/auth";
-import { suitForUser } from "../game/suits";
+import { loadCharacter, encodeSuit, decodeSuit } from "../game/suits";
 import type { VoiceSettings } from "../audio/voice";
 import { ControlsModal } from "../components/Controls";
+import { CharacterModal } from "../components/Character";
 import { MilestoneModal } from "../components/Milestone";
 import { AudioTestModal } from "../components/VoiceTest";
 import type { MilestoneStats } from "../social/milestone";
@@ -47,6 +48,11 @@ export default function Play() {
   const [showAudio, setShowAudio] = useState(false);
   const [sound, setSound] = useState(() => sfxOn());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showCharacter, setShowCharacter] = useState(false);
+  const [character, setCharacter] = useState(() => loadCharacter());
+  const playRootRef = useRef<HTMLDivElement>(null);
   const [sideTab, setSideTab] = useState<"missions" | "map" | "journal" | "voice" | "system">("missions");
   const stopListenRef = useRef<(() => void) | null>(null);
   const shownBeats = useRef(new Set<string>());
@@ -158,6 +164,22 @@ export default function Play() {
   // warm TTS voices once so narration has sound from the first beat
   useEffect(() => { warmVoices(); }, []);
 
+  // fullscreen label follows the actual state (Esc exits natively)
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await playRootRef.current?.requestFullscreen();
+    } catch {
+      useLumen.getState().pushLog("Fullscreen blocked by the browser here.");
+    }
+  };
+
   // every button answers with a click — one delegated listener, game-wide
   useEffect(() => {
     const onTap = (e: PointerEvent) => {
@@ -193,7 +215,7 @@ export default function Play() {
     let alive = true;
     const beat = async () => {
       const st = useLumen.getState();
-      await api.heartbeat(worldId, st.playerPos, theme);
+      await api.heartbeat(worldId, st.playerPos, encodeSuit(character.suit, character.accent));
       const list = await api.peers(worldId);
       if (!alive || !list) return;
       const me = (loadSession()?.email ?? "").split("@")[0];
@@ -201,7 +223,7 @@ export default function Play() {
         list
           .filter((p) => p.user !== me)
           .map((p) => {
-            const spec = suitForUser(p.user, theme);
+            const spec = decodeSuit(p.suit, p.user, theme);
             return { user: p.user, pos: p.pos, suit: spec.suit, accent: spec.accent };
           }),
       );
@@ -368,7 +390,7 @@ export default function Play() {
   };
 
   return (
-    <div style={{ height: "calc(100vh - 57px)", display: "flex", flexDirection: "column" }}>
+    <div ref={playRootRef} style={{ height: "calc(100vh - 57px)", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       <div className="row" style={{ padding: "8px 14px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
         <b>{world.name}</b>
         <span className="muted">{s.reachedLocations.length}/{world.locations.length} sites · {s.completedMissions.length}/{world.missions.length} missions</span>
@@ -391,11 +413,18 @@ export default function Play() {
         <button className={flyMode ? "btn" : "btn-ghost"} title={hasSuit ? "Toggle flight (F)" : "Find the flight suit first"} onClick={toggleFly}>
           {flyMode ? "Flying" : "Fly"}
         </button>
+        <button className="btn-ghost" title="Play in fullscreen (Esc exits)" onClick={() => void toggleFullscreen()}>
+          {isFullscreen ? "Exit full" : "Fullscreen"}
+        </button>
+        <button className="btn-ghost" title="Show or hide the side panel" onClick={() => setPanelOpen((v) => !v)}>
+          {panelOpen ? "Hide panel" : "Show panel"}
+        </button>
         <div style={{ position: "relative" }}>
           <button className="btn-ghost" title="Save, checkpoints, controls, audio" onClick={() => setMenuOpen((v) => !v)}>Menu</button>          {menuOpen && (
             <div className="hud-panel" style={{ position: "absolute", right: 0, top: 44, zIndex: 20, minWidth: 190, display: "flex", flexDirection: "column", gap: 6 }}>
               <button className="btn-ghost" onClick={() => { s.save(); setMenuOpen(false); }}>Save run</button>
               <button className="btn-ghost" onClick={() => { s.load(); setMenuOpen(false); }}>Load run</button>
+              <button className="btn-ghost" title="Pick your explorer suit" onClick={() => { setShowCharacter(true); setMenuOpen(false); }}>Character: {character.label}</button>
               <button className="btn-ghost" title="Remap every action to your own keys" onClick={() => { setShowControls(true); setMenuOpen(false); }}>Controls</button>
               <button className="btn-ghost" title="Prove speaker + mic work" onClick={() => { setShowAudio(true); setMenuOpen(false); }}>Audio test</button>
               <button className="btn-ghost" title="Toggle button + object sounds" onClick={toggleSound} style={sound ? undefined : { opacity: 0.55 }}>
@@ -407,9 +436,9 @@ export default function Play() {
         </div>
       </div>
       <InventoryStrip world={world} />
-      <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
+      <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12, gridTemplateColumns: panelOpen ? undefined : "1fr" }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} />
+          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} />
           {target && (
             <button
               className="btn"
@@ -421,7 +450,7 @@ export default function Play() {
             </button>
           )}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "auto" }}>
+        <div style={{ display: panelOpen ? "flex" : "none", flexDirection: "column", gap: 10, overflow: "auto" }}>
           {target && (
             <div className="hud-panel">
               <div className="row"><b>At crosshair</b><span className="pill cyan">{target.name}</span></div>
@@ -445,6 +474,7 @@ export default function Play() {
       </div>
       {puzzle && <PuzzleModal puzzle={puzzle} onClose={() => { setPuzzleId(null); setTimeout(checkMissions, 50); }} />}
       {showControls && <ControlsModal onClose={() => setShowControls(false)} />}
+      {showCharacter && <CharacterModal onClose={() => { setCharacter(loadCharacter()); setShowCharacter(false); }} />}
       {showAudio && <AudioTestModal onClose={() => setShowAudio(false)} />}
       {showContribute && <ContributeModal world={world} onClose={() => setShowContribute(false)} />}
       {introOpen && <StoryIntro world={world} onBegin={beginIntro} />}

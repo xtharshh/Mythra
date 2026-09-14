@@ -46,6 +46,7 @@ interface Props {
   onToggleFlyRequest: () => void;
   onTargetChange?: (obj: WorldObject | null) => void;
   peers?: PeerPresence[];
+  character: { suit: number; accent: number };
   focusedObjectId?: string | null;
 }
 
@@ -125,7 +126,7 @@ function makeNameTag(name: string): THREE.Mesh {
   return m;
 }
 
-export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers }: Props) {
+export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({
     keys: new Set<string>(),
@@ -142,6 +143,8 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
   const bindsRef = useRef(loadBinds());
   const peersRef = useRef<PeerPresence[]>(peers ?? []);
   peersRef.current = peers ?? [];
+  const characterRef = useRef(character);
+  characterRef.current = character;
   const callbacks = useRef({ onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange });
   callbacks.current = { onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange };
   const flags = useRef({ flyMode, hasSuit });
@@ -394,7 +397,27 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     scene.add(flag.group);
     effects.push(flag);
 
-    // --- astronaut on patrol: walks waypoints, waves when you approach
+    // --- you: third-person astronaut in your picked suit, always visible
+    let me: Astronaut | null = null;
+    let meSuit = -1;
+    let meAccent = -1;
+    const dressMe = () => {
+      const c = characterRef.current;
+      if (me && meSuit === c.suit && meAccent === c.accent) return;
+      if (me) {
+        scene.remove(me.group);
+        const idx = effects.indexOf(me);
+        if (idx >= 0) effects.splice(idx, 1);
+        me.dispose();
+      }
+      me = new Astronaut(c.suit, c.accent);
+      meSuit = c.suit;
+      meAccent = c.accent;
+      scene.add(me.group);
+      effects.push(me);
+    };
+    dressMe();
+    // --- patrol astronaut: walks waypoints, waves when you approach
     const astro = new Astronaut();
     astro.group.position.set(2, 0, 4);
     scene.add(astro.group);
@@ -472,6 +495,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     const clock = new THREE.Timer();
     let raf = 0;
     const bounds = () => worldRef.current.settings.worldBounds;
+    let snappedCam = false;
     const animate = () => {
       raf = requestAnimationFrame(animate);
       clock.update();
@@ -528,10 +552,29 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
         st.grounded = st.pos.y <= GROUND_Y + 0.01;
         if (st.grounded) st.vy = 0;
       }
-      camera.position.copy(st.pos);
-      camera.rotation.set(0, 0, 0);
-      camera.rotateY(st.yaw);
-      camera.rotateX(st.pitch);
+      // --- you, visible: avatar rides your position, camera floats above-behind
+      dressMe();
+      if (me) {
+        me.group.position.set(st.pos.x, st.pos.y - GROUND_Y, st.pos.z);
+        me.group.rotation.y = st.yaw + Math.PI;
+        me.state.moving = moving || !st.grounded;
+        me.state.waving = false;
+      }
+      {
+        const back = 3.6;
+        const desired = new THREE.Vector3(
+          st.pos.x + Math.sin(st.yaw) * back,
+          st.pos.y + 1.5 - st.pitch * 2.2,
+          st.pos.z + Math.cos(st.yaw) * back,
+        );
+        if (!snappedCam) {
+          camera.position.copy(desired);
+          snappedCam = true;
+        } else {
+          camera.position.lerp(desired, 1 - Math.pow(0.0001, dt));
+        }
+        camera.lookAt(st.pos.x, st.pos.y - 0.15, st.pos.z);
+      }
       const targetFov = flying ? 84 : 72;
       if (Math.abs(camera.fov - targetFov) > 0.1) {
         camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 4);

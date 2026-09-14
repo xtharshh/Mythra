@@ -39,3 +39,60 @@ export function suitForUser(user: string, theme: string): SuitSpec {
     label: t.label,
   };
 }
+
+/* ---------------- selectable characters (your explorer, your look) ---- */
+
+export interface CharacterSpec {
+  id: string;
+  label: string;
+  suit: number;
+  accent: number;
+  blurb: string;
+}
+
+export const CHARACTERS: CharacterSpec[] = [
+  { id: "aurora", label: "Aurora", suit: 0xea580c, accent: 0x22d3ee, blurb: "Dust-ops orange, standard issue" },
+  { id: "void", label: "Voidwalker", suit: 0xe8e4da, accent: 0x8b5cf6, blurb: "Clean whites for station duty" },
+  { id: "abyss", label: "Abyss", suit: 0x0ea5e9, accent: 0xfbbf24, blurb: "Dive-rig teal" },
+  { id: "warden", label: "Warden", suit: 0x4d7c0f, accent: 0xfbbf24, blurb: "Trail green" },
+  { id: "neon", label: "Neon", suit: 0x23262f, accent: 0xec4899, blurb: "Night ops + pink trim" },
+  { id: "ember", label: "Ember", suit: 0x7c2d12, accent: 0xffb45e, blurb: "Forge red" },
+];
+
+const CHAR_KEY = "lumen-character-v1";
+
+export function loadCharacter(): CharacterSpec {
+  try {
+    const id = localStorage.getItem(CHAR_KEY);
+    const found = CHARACTERS.find((c) => c.id === id);
+    if (found) return found;
+  } catch {
+    /* ignore */
+  }
+  return CHARACTERS[0];
+}
+
+export function saveCharacter(id: string): void {
+  try {
+    if (CHARACTERS.some((c) => c.id === id)) localStorage.setItem(CHAR_KEY, id);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Encode a picked suit for the presence wire (`suitHex:accentHex`). Pure. */
+export function encodeSuit(suit: number, accent: number): string {
+  return `${suit.toString(16)}:${accent.toString(16)}`;
+}
+
+/** Decode a presence suit, falling back to the scenario suit. Pure. */
+export function decodeSuit(raw: unknown, fallbackUser: string, fallbackTheme: string): { suit: number; accent: number } {
+  if (typeof raw === "string") {
+    const [s, a] = raw.split(":");
+    const suit = Number.parseInt(s ?? "", 16);
+    const accent = Number.parseInt(a ?? "", 16);
+    if (Number.isFinite(suit) && Number.isFinite(accent)) return { suit, accent };
+  }
+  const fb = suitForUser(fallbackUser, fallbackTheme);
+  return { suit: fb.suit, accent: fb.accent };
+}

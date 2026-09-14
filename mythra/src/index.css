@@ -24,7 +24,8 @@
   --th-ground: #c1553b;
   --th-hero: radial-gradient(900px 420px at 78% 8%, rgba(255, 107, 53, 0.35) 0%, transparent 60%), radial-gradient(1200px 800px at 70% -10%, #3b1428 0%, #160a1e 55%, #070714 100%);
   --th-planet: radial-gradient(circle at 32% 30%, #ffb08a 0%, #c1553b 38%, #7c2d1e 68%, #2b0f0a 100%);
-  --font: system-ui, -apple-system, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Chakra Petch", "Inter", system-ui, sans-serif;
   --font-data: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   font-family: var(--font);
   color: var(--text);
@@ -43,6 +44,19 @@ body {
   background-size: 5px 5px;
 }
 h1, h2, h3, b { letter-spacing: 0.2px; }
+.case-title, .intro-title, .nav b, .btn, .transmission h3 {
+  font-family: var(--font-display);
+}
+.case-title {
+  font-weight: 700;
+  background: linear-gradient(92deg, #fff3e0 20%, var(--th-accent) 60%, var(--th-accent2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.6));
+}
+.case-title em { font-style: normal; }
 #root { min-height: 100vh; }
 a { color: var(--th-accent); text-decoration: none; }
 button, input, select, textarea { font: inherit; }
