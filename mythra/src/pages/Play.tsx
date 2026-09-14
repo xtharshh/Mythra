@@ -66,6 +66,7 @@ export default function Play() {
   const [sideTab, setSideTab] = useState<"missions" | "map" | "journal" | "voice" | "board" | "system">("missions");
   const stopListenRef = useRef<(() => void) | null>(null);
   const shownBeats = useRef(new Set<string>());
+  const shownChapters = useRef(new Set<string>());
   const toastId = useRef(0);
   const [view, setView] = useState<ViewMode>(() => loadView());
 
@@ -467,6 +468,21 @@ export default function Play() {
   useEffect(() => { checkMissions(); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.inventory, s.discoveredClues, s.solvedPuzzles, s.inspectedObjects, s.completedMissions]);
 
+  // new continued chapters announce + narrate themselves on arrival
+  useEffect(() => {
+    const entries = s.world?.communityLog ?? [];
+    for (const e of entries) {
+      if (shownChapters.current.has(e.id)) continue;
+      shownChapters.current.add(e.id);
+      const n = entries.indexOf(e) + 1;
+      const id = ++toastId.current;
+      setToasts((q) => [...q.slice(-2), { id, name: `Chapter ${n}: ${e.title}`, desc: `by ${e.author} — narrating…` }]);
+      window.setTimeout(() => setToasts((q) => q.filter((x) => x.id !== id)), 6000);
+      if (voice.enabled) speak(`Chapter ${n}: ${e.title}, by ${e.author}. ${e.text}`, voice);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.world?.communityLog]);
+
   const reach = (locId: string) => {
     const loc = world.locations.find((l) => l.id === locId);
     if (!loc) return;
@@ -511,6 +527,9 @@ export default function Play() {
         </button>
         <button className={flyMode ? "btn" : "btn-ghost"} title="Toggle flight (F) — Space up, C down" onClick={toggleFly}>
           {flyMode ? "Flying" : "Fly"}
+        </button>
+        <button className="btn-ghost" title="Top 10 + live solvers for this story" onClick={() => setSideTab("board")}>
+          Board
         </button>
         <button className="btn-ghost" title="Play in fullscreen (Esc exits)" onClick={() => void toggleFullscreen()}>
           {isFullscreen ? "Exit full" : "Fullscreen"}

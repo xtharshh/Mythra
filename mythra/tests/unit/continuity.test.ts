@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyContribution,
+  chapterNumber,
   forkWorld,
   makeContribution,
   nearestLocation,
@@ -73,6 +74,13 @@ describe("forks + versions (new stories)", () => {
     expect(v.worldId).toBe(world.id);
     expect(v.versionNumber).toBe(world.version);
     expect(v.snapshot.id).toBe(world.id);
+  });
+});
+
+describe("chapters (continued stories)", () => {
+  it("numbers tales from Chapter 1", () => {
+    expect(chapterNumber(0)).toBe("Chapter 1");
+    expect(chapterNumber(4)).toBe("Chapter 5");
   });
 });
 

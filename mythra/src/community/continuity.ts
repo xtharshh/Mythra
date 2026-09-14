@@ -170,6 +170,11 @@ export function nearestLocation(
   return { id: best.id, name: best.name, dist: bestD };
 }
 
+/** "Chapter N" label for the Nth continued tale (1-based). Pure. */
+export function chapterNumber(index: number): string {
+  return `Chapter ${index + 1}`;
+}
+
 /** Fork an existing story into a brand-new one (new id, draft status). */
 export function forkWorld(world: World, authorName = "you"): World {
   const stamp = Date.now();

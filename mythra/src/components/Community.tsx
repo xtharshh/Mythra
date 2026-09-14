@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CONTRIBUTION_LIMITS,
+  chapterNumber,
   forkWorld,
   kindAllowed,
   makeContribution,
@@ -148,10 +149,10 @@ export function ChaptersPanel({ world }: { world: World }) {
   };
   return (
     <div className="hud-panel">
-      <b>📖 Continued by explorers</b>
-      {entries.map((e) => (
+      <b>Continued by explorers</b>
+      {entries.map((e, i) => (
         <div key={e.id} style={{ marginTop: 8, fontSize: 13 }}>
-          <span className="pill cyan">{KIND_LABELS[e.kind]}</span> <b>{e.title}</b>
+          <span className="pill cyan">{chapterNumber(i)}</span> <span className="pill">{KIND_LABELS[e.kind]}</span> <b>{e.title}</b>
           <div>{e.text}</div>
           <div className="muted">— {e.author}</div>
           <div className="row" style={{ marginTop: 4 }}>
