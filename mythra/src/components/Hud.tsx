@@ -4,7 +4,7 @@ import type { Puzzle, World } from "../types";
 import { checkPuzzleAnswer, objectiveProgress } from "../game/engines";
 import { discoverVerb } from "../game/credits";
 import { useLumen } from "../state/store";
-import { DictateButton, VoiceNotes } from "./VoiceNotes";
+import { DictateButton, VoiceClipList, VoiceNoteRecorder, VoiceNotes } from "./VoiceNotes";
 
 export function MissionTracker({ world }: { world: World }) {
   const { activeMissions, completedMissions, gameState } = useLumen();
@@ -33,8 +33,11 @@ export function MissionTracker({ world }: { world: World }) {
                 );
               })}
             </div>
-            {!done && !active && <StartMissionButton id={m.id} />}
-            <VoiceNotes worldId={world.id} targetKind="mission" targetId={m.id} label={m.title} compact />
+            <div className="row" style={{ gap: 6, alignItems: "center", marginTop: 4 }}>
+              {!done && !active && <StartMissionButton id={m.id} />}
+              <VoiceNoteRecorder worldId={world.id} targetKind="mission" targetId={m.id} label={m.title} compact />
+            </div>
+            <VoiceClipList worldId={world.id} targetKind="mission" targetId={m.id} />
           </div>
         );
       })}
@@ -44,7 +47,7 @@ export function MissionTracker({ world }: { world: World }) {
 
 function StartMissionButton({ id }: { id: string }) {
   const { startMission, pushLog } = useLumen();
-  return <button className="btn-ghost" style={{ marginTop: 4 }} onClick={() => { startMission(id); pushLog(`Mission started: ${id}`); }}>Start</button>;
+  return <button className="btn-ghost" style={{ padding: "2px 10px" }} onClick={() => { startMission(id); pushLog(`Mission started: ${id}`); }}>Start</button>;
 }
 
 export function Journal({ world }: { world: World }) {

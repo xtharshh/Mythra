@@ -49,6 +49,7 @@ export function CheckpointPanel({ worldId }: { worldId: string }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
         {checkpoints.map((c) => (
           <div key={c.id} style={{ fontSize: 13, borderTop: "1px solid var(--border)", paddingTop: 6 }}>
+            <span className="pill cyan">⚑ {(c.owner ?? "guest").split("@")[0]}</span>{" "}
             <span className={`pill ${c.kind === "manual" ? "cyan" : ""}`}>{c.kind}</span> <b>{c.label}</b>
             <div className="dossier-meta">{new Date(c.createdAt).toLocaleString()} · {c.snapshot.completedMissions.length} missions · {c.snapshot.discoveredClues.length} clues</div>
             <div className="row" style={{ marginTop: 4 }}>
