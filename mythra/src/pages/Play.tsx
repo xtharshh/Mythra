@@ -10,6 +10,7 @@ import { DialogueModal, LAB_BEAT, MISSION_BEATS, StoryIntro, Toasts, Transmissio
 import type { Beat, Toast } from "../components/Story";
 import { EventLog, Inventory, InventoryStrip, Journal, MissionTracker, PuzzleModal } from "../components/Hud";
 import { CheckpointPanel } from "../components/Checkpoints";
+import { ownerLabel } from "../game/credits";
 import { WorldMap } from "../components/WorldMap";
 import { VoiceLibrary, VoiceNotes } from "../components/VoiceNotes";
 import {
@@ -393,6 +394,7 @@ export default function Play() {
     <div ref={playRootRef} style={{ height: "calc(100vh - 57px)", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       <div className="row" style={{ padding: "8px 14px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
         <b>{world.name}</b>
+        <span className="pill cyan">⚑ story by {ownerLabel(world.ownerId)}</span>
         <span className="muted">{s.reachedLocations.length}/{world.locations.length} sites · {s.completedMissions.length}/{world.missions.length} missions</span>
         <span style={{ flex: 1 }} />
         <button className="btn" onClick={() => setShowContribute(true)}>Continue story</button>

@@ -27,6 +27,7 @@ export function CheckpointPanel({ worldId }: { worldId: string }) {
         <b><Icon name="save" /> Checkpoints</b>
         <span className="pill">{checkpoints.length}</span>
       </div>
+      <div className="dossier-meta" style={{ marginTop: 4 }}>Private — saved on this machine only. Other solvers can never see your checkpoints.</div>
       <div className="row" style={{ marginTop: 8 }}>
         <input
           value={label}

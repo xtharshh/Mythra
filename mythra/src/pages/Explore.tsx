@@ -156,7 +156,7 @@ export default function Explore() {
                 <div>
                   <b>{w.name}</b>{" "}
                   <span className="stamp">{published ? "open to solvers" : "draft · only you"}</span>
-                  <div className="muted" style={{ fontSize: 13 }}>by <b>{ownerLabel(w.ownerId)}</b> · {w.theme} · {w.difficulty}</div>
+                  <div style={{ marginTop: 4 }}><span className="pill cyan">⚑ story by {ownerLabel(w.ownerId)}</span></div>
                   <div className="muted" style={{ fontSize: 13 }}>{w.theme} · {w.difficulty} · {w.missions.length} missions · {w.clues.length} clues · {w.puzzles.length} puzzles</div>
                   <div className="dossier-meta">
                     <Icon name="play" size={11} /> {plays[w.id] ?? 0} plays · <Icon name="book" size={11} /> {chapters} chapters
