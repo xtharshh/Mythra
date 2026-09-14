@@ -60,9 +60,29 @@ export function clearSession(): void {
   }
 }
 
-/** Owner namespace for saves/checkpoints: verified email, else guest. */
 export function saveOwner(): string {
   return loadSession()?.email ?? "guest";
+}
+
+export type EntryMode = "offline" | "online";
+const ENTRY_KEY = "mythra-entry-v1";
+
+/** First-run gate choice. Null = never picked (show the gate). */
+export function loadEntryChoice(): EntryMode | null {
+  try {
+    const raw = localStorage.getItem(ENTRY_KEY);
+    return raw === "offline" || raw === "online" ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveEntryChoice(mode: EntryMode): void {
+  try {
+    localStorage.setItem(ENTRY_KEY, mode);
+  } catch {
+    /* ignore */
+  }
 }
 
 function readPending(): PendingCode | null {

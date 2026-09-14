@@ -2,8 +2,8 @@
 // No password — 6-digit code. Uses the MYTHRA API when connected,
 // otherwise fully local. Either way the session namespaces saves.
 import { useState } from "react";
-import { clearSession, isValidEmail, loadSession, normalizeEmail, requestLoginCode, verifyLoginCode } from "../auth/auth";
-import type { AuthSession } from "../auth/auth";
+import { clearSession, isValidEmail, loadSession, normalizeEmail, requestLoginCode, saveEntryChoice, verifyLoginCode } from "../auth/auth";
+import type { AuthSession, EntryMode } from "../auth/auth";
 import { api, apiOn, discordLoginUrl, setApiToken } from "../api/client";
 import { useLumen } from "../state/store";
 import { Icon } from "./icons";
@@ -11,6 +11,42 @@ import { Icon } from "./icons";
 export function useAuthSession(): { session: AuthSession | null; refresh: () => void } {
   const [session, setSession] = useState<AuthSession | null>(() => loadSession());
   return { session, refresh: () => setSession(loadSession()) };
+}
+
+/** First-run gate: offline solo flight, or online party via Discord. */
+export function EntryModal({ onPick }: { onPick: (mode: EntryMode) => void }) {
+  const [err, setErr] = useState("");
+  const online = () => {
+    if (!apiOn()) {
+      setErr("Online needs the API: start it (npm run dev:api) and set VITE_API_URL, then restart the game.");
+      return;
+    }
+    saveEntryChoice("online");
+    onPick("online");
+  };
+  const offline = () => {
+    saveEntryChoice("offline");
+    onPick("offline");
+  };
+  return (
+    <div className="modal-back">
+      <div className="modal card" style={{ width: "min(560px, 94vw)", textAlign: "center" }}>
+        <div className="case-kicker">Welcome to MYTHRA · first descent</div>
+        <h2 className="case-title" style={{ fontSize: 32 }}>How do you <em>fly?</em></h2>
+        <p className="muted">Solo expedition on this machine — or online party with Discord sign-in, races, and shared skies.</p>
+        <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 12 }}>
+          <button className="btn btn-big" onClick={offline}>
+            <Icon name="planet" size={16} /> Play offline
+          </button>
+          <button className="btn btn-big" onClick={online} style={{ background: "linear-gradient(180deg, #7289da, #5865F2)" }}>
+            <Icon name="discord" size={16} /> Play online
+          </button>
+        </div>
+        <div className="dossier-meta" style={{ marginTop: 8 }}>offline = solo + local saves · online = Discord sign-in + races + leaderboard</div>
+        {err && <div style={{ color: "var(--red)", fontSize: 13, marginTop: 8 }}>{err}</div>}
+      </div>
+    </div>
+  );
 }
 
 export function LoginModal({ onClose }: { onClose: () => void }) {

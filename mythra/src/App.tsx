@@ -6,13 +6,14 @@ import Explore from "./pages/Explore";
 import Landing from "./pages/Landing";
 import Play from "./pages/Play";
 import Studio from "./pages/Studio";
-import { AuthButton, LoginModal } from "./components/Login";
+import { AuthButton, EntryModal, LoginModal } from "./components/Login";
 import { Logo } from "./components/Logo";
 import { SupportButton } from "./components/Support";
 import { apiOn, formatPing, pingApi } from "./api/client";
 import { useLumen } from "./state/store";
 import { setApiToken } from "./api/client";
-import { saveSession } from "./auth/auth";
+import { loadEntryChoice, saveSession } from "./auth/auth";
+import type { EntryMode } from "./auth/auth";
 import { applyTheme, themeForWorld } from "./theme/theme";
 import demo from "./data/demo-world.json";
 import type { World } from "./types";
@@ -53,6 +54,8 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
   const loadCheckpoints = useLumen((s) => s.loadCheckpoints);
   const activeWorld = useLumen((s) => s.world);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [entryOpen, setEntryOpen] = useState(() => loadEntryChoice() === null);
+  const [entryMode, setEntryMode] = useState<EntryMode | null>(() => loadEntryChoice());
   const [ping, setPing] = useState<number | null>(null);
   const connected = apiOn();
   useEffect(() => { loadLibrary(); loadVoiceNotes(); loadCheckpoints(); }, [loadLibrary, loadVoiceNotes, loadCheckpoints]);
@@ -115,6 +118,14 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
         <Link to="/create">Planner</Link>
         <Link to="/studio">Control</Link>
         <AuthButton onSignIn={() => setLoginOpen(true)} />
+        <button
+          className="btn-ghost"
+          style={{ padding: "4px 10px" }}
+          title="Switch offline / online mode"
+          onClick={() => setEntryOpen(true)}
+        >
+          {entryMode === "online" ? "Online" : "Offline"}
+        </button>
         <SupportButton compact />
         <span className="station-sol" title={connected ? "Live link to the MYTHRA API (10s ping)" : "Offline — playing local"}>
           <span className="blink" />{theme.sol} · {theme.tagline} · ping {formatPing(ping, connected)}
@@ -130,6 +141,15 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
       </Routes>
       </RouteBoundary>
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
+      {entryOpen && (
+        <EntryModal
+          onPick={(mode) => {
+            setEntryMode(mode);
+            setEntryOpen(false);
+            if (mode === "online") setLoginOpen(true);
+          }}
+        />
+      )}
     </Router>
   );
 }

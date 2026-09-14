@@ -69,6 +69,7 @@ export default function Play() {
   const shownChapters = useRef(new Set<string>());
   const toastId = useRef(0);
   const [view, setView] = useState<ViewMode>(() => loadView());
+  const hasSuit = (s.inventory["suit"] ?? 0) > 0;
 
   /** Milestone moment: toast card + fanfare + spoken line. */
   const celebrate = (name: string, desc: string, spoken: string, fanfare: "confirm" | "mission" = "confirm") => {
@@ -166,6 +167,10 @@ export default function Play() {
   };
 
   const toggleFly = () => {
+    if (!hasSuit) {
+      s.pushLog("No thrusters yet — find the flight suit locker at the Rover Garage to unlock the sky.");
+      return;
+    }
     setFlyMode((f) => {
       s.pushLog(f ? "Suit thrusters off." : "Suit online — Space up, C down, Shift boost. The sky is open.");
       return !f;
@@ -539,7 +544,7 @@ export default function Play() {
         >
           {listening ? "Listening…" : "Mic"}
         </button>
-        <button className={flyMode ? "btn" : "btn-ghost"} title="Toggle flight (F) — Space up, C down" onClick={toggleFly}>
+        <button className={flyMode ? "btn" : "btn-ghost"} title={hasSuit ? "Toggle flight (F) — Space up, C down" : "Unlock: find the flight suit locker first"} onClick={toggleFly}>
           {flyMode ? "Flying" : "Fly"}
         </button>
         <button className="btn-ghost" title="Top 10 + live solvers for this story" onClick={() => setSideTab("board")}>
@@ -579,7 +584,7 @@ export default function Play() {
       <InventoryStrip world={world} />
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-          <LumenScene world={world} flyMode={flyMode} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
+          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
           {target && (
             <button
               className="btn"
