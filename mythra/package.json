@@ -11,6 +11,7 @@
     "dev": "vite",
     "dev:api": "tsx watch server/index.ts",
     "build": "tsc -b && vite build",
+    "build:api": "node api/esbuild.config.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run"
@@ -32,6 +33,7 @@
     "@types/react-dom": "^19.2.7",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "esbuild": "^0.28.2",
     "oxlint": "^1.81.0",
     "tsx": "^4.23.13",
     "typescript": "~6.0.2",

@@ -99,8 +99,10 @@ CREATE TABLE IF NOT EXISTS oauth_state (
 
 /** Create all tables (idempotent). Await once per cold start. */
 export async function ensurePgSchema(sql: SqlTag): Promise<void> {
+  const query = (sql as unknown as { query?: (text: string) => Promise<unknown> }).query;
   for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) {
-    await sql([`${stmt};`] as unknown as TemplateStringsArray);
+    if (query) await query(`${stmt};`);
+    else await sql([`${stmt};`] as unknown as TemplateStringsArray);
   }
 }
 
