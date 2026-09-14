@@ -24,7 +24,13 @@ export interface VoiceNoteMeta {
   createdAt: string;
   durationSec: number;
   mime: string;
+  /** blob bytes, recorded at save time so the library can show real sizes */
+  bytes?: number;
 }
+
+/** Where a user's recordings physically live (shown in the UI + docs). */
+export const VOICE_STORAGE_NOTE =
+  "Clips live in this browser: audio in IndexedDB “lumen-voice-notes-v1”, list in localStorage “lumen-voice-notes-meta-v1”. Download any clip as .webm below.";
 
 const META_KEY = "lumen-voice-notes-meta-v1";
 const DB_NAME = "lumen-voice-notes-v1";
@@ -58,6 +64,38 @@ export function filterNotesByTarget(
     .filter((n) => n.targetKind === kind && n.targetId === id && (!worldId || n.worldId === worldId))
     .slice()
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+export interface MicDevice {
+  id: string;
+  label: string;
+}
+
+/** Verdict from a device list. Pure — unit-tested. */
+export function micVerdict(devices: MicDevice[]): "no-mic" | "has-mic" {
+  return devices.length === 0 ? "no-mic" : "has-mic";
+}
+
+/** List microphone hardware. Empty list = this machine truly has no mic
+ *  (labels need granted permission; the COUNT works regardless). */
+export async function listMicDevices(): Promise<MicDevice[]> {
+  try {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return [];
+    const all = await navigator.mediaDevices.enumerateDevices();
+    return all
+      .filter((d) => d.kind === "audioinput")
+      .map((d, i) => ({ id: d.deviceId || `mic-${i}`, label: d.label || `Microphone ${i + 1}` }));
+  } catch {
+    return [];
+  }
+}
+
+/** Human size for clip rows. Pure. */
+export function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** Metadata persistence (blobs stay in IndexedDB). */

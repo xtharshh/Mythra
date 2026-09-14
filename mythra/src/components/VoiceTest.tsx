@@ -3,12 +3,14 @@
 // playback, and the exact permission state — no more guessing what's broken.
 import { useEffect, useRef, useState } from "react";
 import { isTtsSupported, loadVoiceSettings, speak } from "../audio/voice";
-import { isRecordingSupported } from "../audio/voiceNotes";
+import { isRecordingSupported, listMicDevices } from "../audio/voiceNotes";
+import type { MicDevice } from "../audio/voiceNotes";
 import { Icon } from "./icons";
 
 export function AudioTestModal({ onClose }: { onClose: () => void }) {
   const [toneMsg, setToneMsg] = useState("");
   const [perm, setPerm] = useState<string>("checking…");
+  const [devices, setDevices] = useState<MicDevice[] | null>(null);
   const [level, setLevel] = useState(0);
   const [metering, setMetering] = useState(false);
   const [sampleUrl, setSampleUrl] = useState<string | null>(null);
@@ -17,6 +19,9 @@ export function AudioTestModal({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     let alive = true;
+    void listMicDevices().then((d) => {
+      if (alive) setDevices(d);
+    });
     (async () => {
       try {
         const q = await navigator.permissions?.query({ name: "microphone" as PermissionName });
@@ -143,6 +148,13 @@ export function AudioTestModal({ onClose }: { onClose: () => void }) {
         {toneMsg && <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{toneMsg}</div>}
 
         <label>2 · Microphone ({isRecordingSupported() ? "supported" : "NOT supported"} · permission: {perm})</label>
+        <div className="dossier-meta" style={{ marginBottom: 6 }}>
+          {devices === null
+            ? "Scanning hardware…"
+            : devices.length === 0
+              ? "0 audio inputs — THIS machine has no microphone. Recording cannot work here; Dictate + TTS still do."
+              : `${devices.length} input${devices.length === 1 ? "" : "s"}: ${devices.map((d) => d.label).join(" · ")}`}
+        </div>
         <div className="row">
           {!metering ? (
             <button className="btn-ghost" onClick={() => void startMeter()}><Icon name="mic" size={13} /> Start level meter</button>

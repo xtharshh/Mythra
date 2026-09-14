@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { isVoiceInputSupported, startListening } from "../audio/voice";
 import {
-  MAX_VOICE_SEC, filterNotesByTarget, getVoiceNoteURL, idbDeleteClip, idbPutClip,
-  isRecordingSupported, makeVoiceNoteId, recordVoiceClip, revokeVoiceNoteURL,
+  MAX_VOICE_SEC, VOICE_STORAGE_NOTE, filterNotesByTarget, formatBytes, getVoiceNoteURL, idbDeleteClip, idbGetClip, idbPutClip,
+  isRecordingSupported, listMicDevices, makeVoiceNoteId, recordVoiceClip, revokeVoiceNoteURL,
 } from "../audio/voiceNotes";
 import type { VoiceNoteMeta, VoiceTargetKind } from "../audio/voiceNotes";
 import { explorerName } from "../game/credits";
@@ -12,7 +12,6 @@ import { useLumen } from "../state/store";
 import { Icon } from "./icons";
 
 /* ---------------- Dictate: STT into any text field ---------------- */
-
 export function DictateButton({ onText, title = "Dictate with your voice" }: { onText: (text: string) => void; title?: string }) {
   const [busy, setBusy] = useState(false);
   if (!isVoiceInputSupported()) return null;
@@ -73,9 +72,19 @@ export function VoiceNoteRecorder({ worldId, targetKind, targetId, label, compac
     return <div className="muted" style={{ fontSize: 12 }}>Mic recording not supported here — use Dictate for text.</div>;
   }
 
-  const start = () => {
+  const start = async () => {
     setErr("");
     setSec(0);
+    // definitive hardware check first: no mic device = no recording possible
+    try {
+      const devices = await listMicDevices();
+      if (devices.length === 0) {
+        setErr("This machine has no microphone hardware (0 audio inputs found) — Dictate and TTS still work, or plug in a mic and retry.");
+        return;
+      }
+    } catch {
+      /* fall through to the recorder, which reports precisely */
+    }
     try {
       const api = recordVoiceClip({ maxSec: MAX_VOICE_SEC, onTick: setSec });
       recRef.current = api;
@@ -95,6 +104,7 @@ export function VoiceNoteRecorder({ worldId, targetKind, targetId, label, compac
               createdAt: new Date().toISOString(),
               durationSec,
               mime,
+              bytes: blob.size,
             };
             await idbPutClip(meta.id, blob);
             addVoiceNote(meta);
@@ -207,6 +217,22 @@ export function VoiceNotes({ worldId, targetKind, targetId, label, compact }: Re
   );
 }
 
+/** Download a stored clip as a .webm file — proof your voice is really kept. */
+async function downloadClip(id: string, label: string): Promise<void> {
+  try {
+    const blob = await idbGetClip(id);
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${label.replace(/[^a-z0-9-_]+/gi, "_").slice(0, 40) || "voice-note"}.webm`;
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch {
+    /* ignore */
+  }
+}
+
 /* ---------------- Global library: narrate your own story ---------------- */
 
 export function VoiceLibrary({ worldId }: { worldId: string }) {
@@ -220,6 +246,7 @@ export function VoiceLibrary({ worldId }: { worldId: string }) {
   const [filter, setFilter] = useState<string>("all");
   const kinds = ["all", ...Array.from(new Set(mine.map((m) => m.targetKind)))];
   const shown = filter === "all" ? mine : mine.filter((m) => m.targetKind === filter);
+  const totalBytes = mine.reduce((s, m) => s + (m.bytes ?? 0), 0);
 
   return (
     <div className="hud-panel">
@@ -234,6 +261,9 @@ export function VoiceLibrary({ worldId }: { worldId: string }) {
         <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
           No voice yet — hit <b>Narrate</b> on any mission, clue, location, object, or chapter and tell the story in your own voice.
         </div>
+      )}
+      {mine.length > 0 && (
+        <div className="dossier-meta" style={{ marginTop: 6 }}>{VOICE_STORAGE_NOTE} ({formatBytes(totalBytes)} total)</div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
         {shown.map((c) => (
@@ -272,10 +302,13 @@ function VoiceLibraryRow({ clip, worldId }: { clip: VoiceNoteMeta; worldId: stri
   return (
     <div style={{ fontSize: 13, borderTop: "1px solid var(--border)", paddingTop: 6 }}>
       <span className="pill">{clip.targetKind}</span> <b>{clip.label}</b>{" "}
-      <span className="muted">by {clip.author} · {clip.durationSec}s · {new Date(clip.createdAt).toLocaleString()}</span>
+      <span className="muted">by {clip.author} · {clip.durationSec}s · {formatBytes(clip.bytes)} · {new Date(clip.createdAt).toLocaleString()}</span>
       <div className="row" style={{ marginTop: 4 }}>
-        {url ? <audio controls preload="metadata" src={url} style={{ height: 28, maxWidth: 240 }} /> : <span className="muted">loading…</span>}
-        <button className="btn-ghost" style={{ padding: "0 6px" }} onClick={() => void remove()}>✕</button>
+        {url ? <audio controls preload="metadata" src={url} style={{ height: 28, maxWidth: 220 }} /> : <span className="muted">loading…</span>}
+        <button className="btn-ghost" style={{ padding: "0 6px" }} title="Download clip as .webm" onClick={() => void downloadClip(clip.id, clip.label)}>
+          <Icon name="save" size={12} />
+        </button>
+        <button className="btn-ghost" style={{ padding: "0 6px" }} title="Delete clip" onClick={() => void remove()}>✕</button>
       </div>
       <VoiceClipMover clip={clip} worldId={worldId} />
     </div>

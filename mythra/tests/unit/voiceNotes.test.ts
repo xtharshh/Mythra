@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterNotesByTarget, makeVoiceNoteId, mapMicError, voiceTargetKey } from "../../src/audio/voiceNotes";
+import { filterNotesByTarget, formatBytes, makeVoiceNoteId, mapMicError, micVerdict, voiceTargetKey } from "../../src/audio/voiceNotes";
 import type { VoiceNoteMeta } from "../../src/audio/voiceNotes";
 
 function meta(partial: Partial<VoiceNoteMeta> & { id: string }): VoiceNoteMeta {
@@ -46,5 +46,16 @@ describe("voiceNotes targets", () => {
     expect(mapMicError(Object.assign(new Error("none"), { name: "NotFoundError" }))).toMatch(/No microphone/i);
     // raw string fallback (no name) with the same browser text
     expect(mapMicError("Could not start audio source")).toMatch(/busy|unavailable/i);
+  });
+
+  it("judges mic hardware from device lists", () => {
+    expect(micVerdict([])).toBe("no-mic");
+    expect(micVerdict([{ id: "a", label: "Default" }])).toBe("has-mic");
+  });
+
+  it("formats clip sizes", () => {
+    expect(formatBytes(0)).toBe("—");
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(48 * 1024)).toBe("48 KB");
   });
 });
