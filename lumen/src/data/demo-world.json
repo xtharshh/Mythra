@@ -1,0 +1,206 @@
+{
+  "id": "world-mars-demo",
+  "ownerId": "creator-lumen",
+  "name": "The Silent Mars Colony",
+  "slug": "silent-mars-colony",
+  "description": "The first Mars settlement lost contact with Earth. Rebuild, investigate, and find the hidden laboratory.",
+  "theme": "mars",
+  "status": "published",
+  "visibility": "public",
+  "difficulty": "medium",
+  "version": 1,
+  "environment": {
+    "type": "mars",
+    "skyColor": "#1a0b2e",
+    "fogColor": "#b5533c",
+    "primaryColor": "#c1553b",
+    "secondaryColor": "#7c3aed",
+    "gravity": 3.7,
+    "atmosphere": "thin",
+    "weather": "dust_storm",
+    "timeOfDay": "sunset",
+    "terrainSeed": 1337,
+    "ambientIntensity": 0.7
+  },
+  "story": {
+    "title": "The Silent Mars Colony",
+    "premise": "The first Mars settlement suddenly lost communication with Earth.",
+    "background": "Six astronauts built Aurora Base. On Sol 442 every transmission stopped mid-sentence.",
+    "centralConflict": "Discover why the crew vanished while restoring the colony to survive.",
+    "playerRole": "Investigator-engineer sent on the second landing window.",
+    "knownFacts": ["Contact lost on Sol 442", "Habitat is damaged", "Solar field is offline"],
+    "hiddenTruths": ["One astronaut survived", "The shutdown was deliberate", "A lab hides beneath the western ridge"],
+    "tone": "mysterious",
+    "canonicalEnding": "end_main"
+  },
+  "locations": [
+    { "id": "loc_landing", "name": "Landing Zone", "description": "Scorched descent pad and supply crates.", "position": [0, 0, 0], "radius": 9, "locked": false, "tags": ["start"] },
+    { "id": "loc_habitat", "name": "Damaged Habitat", "description": "Half-buried hab module, lights flickering.", "position": [18, 0, 6], "radius": 8, "locked": false, "tags": ["mission"] },
+    { "id": "loc_solar", "name": "Solar Panel Field", "description": "Rows of dust-covered panels.", "position": [-16, 0, 10], "radius": 9, "locked": false, "tags": ["mission"] },
+    { "id": "loc_garage", "name": "Rover Garage", "description": "Open hangar, one rover missing.", "position": [6, 0, -16], "radius": 7, "locked": false, "tags": ["mission"] },
+    { "id": "loc_tower", "name": "Communication Tower", "description": "Bent antenna farm.", "position": [-6, 0, -14], "radius": 6, "locked": false, "tags": ["clue"] },
+    { "id": "loc_water", "name": "Water Extraction Station", "description": "Humming ice drill.", "position": [22, 0, -10], "radius": 6, "locked": false, "tags": ["resource"] },
+    { "id": "loc_ridge", "name": "Western Ridge", "description": "Rocky overlook hiding a sealed entrance.", "position": [-24, 0, -8], "radius": 8, "locked": true, "unlockCondition": { "type": "puzzle_solved", "puzzleId": "puzzle_solar" }, "tags": ["hidden"] },
+    { "id": "loc_lab", "name": "Underground Laboratory", "description": "Secret lab beneath the ridge.", "position": [-28, 0, -12], "radius": 6, "locked": true, "unlockCondition": { "type": "puzzle_solved", "puzzleId": "puzzle_labcode" }, "tags": ["hidden", "ending"] },
+    { "id": "loc_shelter", "name": "Emergency Shelter", "description": "Half-collapsed shelter with a pinned map.", "position": [10, 0, 18], "radius": 6, "locked": false, "tags": ["clue"] },
+    { "id": "loc_vault", "name": "Buried Research Vault", "description": "Sealed vault under the shelter.", "position": [12, 0, 22], "radius": 4, "locked": true, "unlockCondition": { "type": "clue_discovered", "clueId": "clue_map" }, "tags": ["hidden", "lore"] }
+  ],
+  "objects": [
+    { "id": "obj_panel", "type": "machine", "modelId": "console", "name": "Habitat Control Panel", "description": "Sparking control panel. Needs metal + circuits.", "locationId": "loc_habitat", "position": [18, 1, 4], "rotation": [0, 0, 0], "scale": [1.4, 1, 0.6], "interaction": { "kind": "repair", "prompt": "Repair habitat panel" }, "visibility": "visible" },
+    { "id": "obj_metal_1", "type": "resource_node", "modelId": "scrap", "name": "Scrap Heap", "description": "Twisted hull fragments.", "locationId": "loc_landing", "position": [3, 0.5, 2], "rotation": [0, 0, 0], "scale": [1, 1, 1], "interaction": { "kind": "collect", "givesItemId": "metal", "givesQuantity": 2, "prompt": "Collect metal" }, "visibility": "visible" },
+    { "id": "obj_metal_2", "type": "resource_node", "modelId": "scrap", "name": "Supply Crates", "description": "Rusted crates with usable plating.", "locationId": "loc_water", "position": [22, 0.5, -8], "rotation": [0, 0.5, 0], "scale": [1, 1, 1], "interaction": { "kind": "collect", "givesItemId": "metal", "givesQuantity": 2, "prompt": "Collect metal" }, "visibility": "visible" },
+    { "id": "obj_circuit", "type": "container", "modelId": "drone", "name": "Broken Drone", "description": "A survey drone with salvageable boards.", "locationId": "loc_garage", "position": [6, 0.6, -14], "rotation": [0, 0, 0], "scale": [1, 1, 1], "interaction": { "kind": "collect", "givesItemId": "circuit", "givesQuantity": 2, "prompt": "Salvage circuit boards (+2)" }, "visibility": "visible" },
+    { "id": "obj_array", "type": "machine", "modelId": "solar", "name": "Solar Array", "description": "Dust-choked photovoltaic array.", "locationId": "loc_solar", "position": [-16, 1, 10], "rotation": [0, 0, 0], "scale": [3, 0.4, 2], "interaction": { "kind": "inspect", "opensPuzzleId": "puzzle_solar", "prompt": "Inspect solar array (puzzle)" }, "visibility": "visible" },
+    { "id": "obj_controller", "type": "terminal", "modelId": "console", "name": "Solar Controller", "description": "Blinking controller asking for a sequence.", "locationId": "loc_solar", "position": [-14, 1, 8], "rotation": [0, 0.4, 0], "scale": [1, 1.4, 0.6], "interaction": { "kind": "solve", "opensPuzzleId": "puzzle_solar", "revealsClueId": "clue_maint", "prompt": "Solve solar activation" }, "visibility": "visible" },
+    { "id": "obj_rover", "type": "vehicle", "modelId": "rover", "name": "Missing Rover", "description": "Rover parked far from the garage, dust on the seats.", "locationId": "loc_garage", "position": [8, 0.8, -18], "rotation": [0, 0.8, 0], "scale": [2.2, 1, 1.4], "interaction": { "kind": "inspect", "revealsClueId": "clue_coords", "prompt": "Inspect rover" }, "visibility": "visible" },
+    { "id": "obj_nav", "type": "terminal", "modelId": "console", "name": "Rover Nav Console", "description": "The nav log ends mid-route.", "locationId": "loc_garage", "position": [8, 1.2, -17], "rotation": [0, 0, 0], "scale": [0.8, 0.6, 0.4], "interaction": { "kind": "activate", "revealsClueId": "clue_coords", "prompt": "Read nav console" }, "visibility": "visible" },
+    { "id": "obj_helmet", "type": "artifact", "modelId": "helmet", "name": "Damaged Helmet", "description": "A cracked helmet with a recording chip.", "locationId": "loc_landing", "position": [-2, 0.5, 3], "rotation": [0, 0, 0], "scale": [0.6, 0.6, 0.6], "interaction": { "kind": "inspect", "revealsClueId": "clue_helmet", "prompt": "Inspect helmet" }, "visibility": "visible", "metadata": { "float": true } },
+    { "id": "obj_recorder", "type": "artifact", "modelId": "recorder", "name": "Helmet Recorder", "description": "Plays a garbled voice message.", "locationId": "loc_landing", "position": [-2.5, 0.5, 3.5], "rotation": [0, 0, 0], "scale": [0.4, 0.4, 0.4], "interaction": { "kind": "activate", "revealsClueId": "clue_audio", "prompt": "Play recording" }, "visibility": "visible", "metadata": { "float": true } },
+    { "id": "obj_terminal", "type": "terminal", "modelId": "console", "name": "Hab Terminal", "description": "Last log entry is corrupted.", "locationId": "loc_habitat", "position": [19, 1, 7], "rotation": [0, -0.4, 0], "scale": [1, 1.2, 0.5], "interaction": { "kind": "activate", "revealsClueId": "clue_terminal", "prompt": "Read terminal log" }, "visibility": "visible" },
+    { "id": "obj_wall", "type": "landmark", "modelId": "glyphwall", "name": "Carved Wall", "description": "Three symbols scratched into the hull.", "locationId": "loc_habitat", "position": [17, 1.4, 5], "rotation": [0, 0, 0], "scale": [1.6, 1, 0.2], "interaction": { "kind": "inspect", "revealsClueId": "clue_symbol", "opensPuzzleId": "puzzle_symbols", "prompt": "Study symbols" }, "visibility": "visible" },
+    { "id": "obj_map", "type": "map", "modelId": "maptable", "name": "Shelter Map", "description": "A hand-drawn map marking a vault.", "locationId": "loc_shelter", "position": [10, 1, 18], "rotation": [0, 0, 0], "scale": [1, 0.1, 1], "interaction": { "kind": "inspect", "revealsClueId": "clue_map", "prompt": "Study shelter map" }, "visibility": "visible", "metadata": { "float": true } },
+    { "id": "obj_labdoor", "type": "door", "modelId": "hatch", "name": "Ridge Hatch", "description": "A sealed hatch with a keypad.", "locationId": "loc_ridge", "position": [-24, 1, -8], "rotation": [0, 0, 0], "scale": [1.6, 2, 0.4], "interaction": { "kind": "solve", "opensPuzzleId": "puzzle_labcode", "revealsClueId": "clue_labcode", "prompt": "Enter access code" }, "visibility": "visible" },
+    { "id": "obj_survivor", "type": "npc", "modelId": "survivor", "name": "Survivor Ivan", "description": "A gaunt figure in a patched suit, waving you closer.", "locationId": "loc_lab", "position": [-27, 0, -11], "rotation": [0, 0.6, 0], "scale": [1, 1, 1], "interaction": { "kind": "talk", "revealsClueId": "clue_audio", "prompt": "Talk to the survivor" }, "visibility": "visible" },
+    { "id": "obj_datacore", "type": "artifact", "modelId": "core", "name": "Lab Data Core", "description": "The truth about Sol 442.", "locationId": "loc_lab", "position": [-28, 1, -12], "rotation": [0, 0, 0], "scale": [0.8, 1.2, 0.8], "interaction": { "kind": "activate", "prompt": "Uncover the truth (ending)" }, "visibility": "visible" },
+    { "id": "obj_beacon", "type": "machine", "modelId": "beacon", "name": "Oxygen Beacon", "description": "Emergency oxygen system.", "locationId": "loc_habitat", "position": [20, 1, 5], "rotation": [0, 0, 0], "scale": [0.7, 1.4, 0.7], "interaction": { "kind": "activate", "prompt": "Activate oxygen" }, "visibility": "visible" },
+    { "id": "obj_suit_locker", "type": "container", "modelId": "locker", "name": "Flight Suit Locker", "description": "A pressurized suit with thruster pack, still charged.", "locationId": "loc_garage", "position": [4, 0.8, -15], "rotation": [0, 0.3, 0], "scale": [1, 1.6, 0.8], "interaction": { "kind": "collect", "givesItemId": "suit", "givesQuantity": 1, "prompt": "Take flight suit (F to fly)" }, "visibility": "visible" },
+    { "id": "obj_skysong", "type": "crystal", "modelId": "skychime", "name": "Sky Chime", "description": "A crystal humming high above the landing zone. Only reachable by flight.", "locationId": "loc_landing", "position": [4, 18, -6], "rotation": [0, 0, 0], "scale": [1.2, 2, 1.2], "interaction": { "kind": "inspect", "revealsClueId": "clue_skysong", "prompt": "Listen to the sky chime" }, "visibility": "visible", "metadata": { "spin": true, "float": true } }
+  ],
+  "characters": [
+    { "id": "char_ivan", "name": "Dr. Ivan (recording)", "role": "Mission commander", "dialogue": ["If you hear this, do not trust the official log.", "The ridge is the answer."], "locationId": "loc_landing" }
+  ],
+  "resources": [
+    { "id": "metal", "name": "Metal", "description": "Hull plating and scrap.", "category": "material", "stackable": true, "maxStack": 99 },
+    { "id": "energy_cell", "name": "Energy Cell", "description": "Portable power.", "category": "energy", "stackable": true, "maxStack": 10 },
+    { "id": "oxygen_filter", "name": "Oxygen Filter", "description": "Keeps the air breathable.", "category": "oxygen", "stackable": true, "maxStack": 10 },
+    { "id": "circuit", "name": "Circuit Board", "description": "Salvaged electronics.", "category": "tool", "stackable": true, "maxStack": 20 },
+    { "id": "water", "name": "Water Container", "description": "Melted ice.", "category": "food", "stackable": true, "maxStack": 10 },
+    { "id": "battery", "name": "Battery", "description": "Rover battery.", "category": "energy", "stackable": true, "maxStack": 5 },
+    { "id": "datachip", "name": "Data Chip", "description": "Corrupted flight data.", "category": "key_item", "stackable": false, "maxStack": 1 },
+    { "id": "toolkit", "name": "Tool Kit", "description": "Repairs machines.", "category": "tool", "stackable": false, "maxStack": 1 },
+    { "id": "suit", "name": "Flight Suit", "description": "Pressurized suit with maneuvering thrusters. Enables flight.", "category": "tool", "stackable": false, "maxStack": 1 }
+  ],
+  "missions": [
+    {
+      "id": "m1_habitat", "title": "Stabilize the Habitat", "description": "Repair the habitat control panel.",
+      "type": "repair", "order": 1, "difficulty": "easy",
+      "prerequisites": [],
+      "objectives": [
+        { "id": "m1_o1", "type": "collect_item", "targetId": "metal", "quantity": 4, "description": "Collect 4 metal", "optional": false },
+        { "id": "m1_o2", "type": "collect_item", "targetId": "circuit", "quantity": 2, "description": "Collect 2 circuit boards", "optional": false },
+        { "id": "m1_o3", "type": "inspect_object", "targetId": "obj_panel", "description": "Repair the habitat control panel", "optional": false }
+      ],
+      "rewards": [{ "itemId": "oxygen_filter", "quantity": 1 }],
+      "startCondition": { "type": "all", "conditions": [] },
+      "completionCondition": { "type": "all", "conditions": [{ "type": "item_owned", "itemId": "metal", "quantity": 4 }, { "type": "item_owned", "itemId": "circuit", "quantity": 2 }, { "type": "object_inspected", "objectId": "obj_panel" }] },
+      "hidden": false, "optional": false, "estimatedMinutes": 10
+    },
+    {
+      "id": "m2_solar", "title": "Restore Solar Power", "description": "Solve the solar activation sequence.",
+      "type": "puzzle", "order": 2, "difficulty": "medium",
+      "prerequisites": [{ "type": "mission_completed", "missionId": "m1_habitat" }],
+      "objectives": [
+        { "id": "m2_o1", "type": "inspect_object", "targetId": "obj_array", "description": "Inspect the broken solar array", "optional": false },
+        { "id": "m2_o2", "type": "solve_puzzle", "targetId": "puzzle_solar", "description": "Solve the solar activation puzzle", "optional": false }
+      ],
+      "rewards": [{ "itemId": "energy_cell", "quantity": 2 }],
+      "startCondition": { "type": "mission_completed", "missionId": "m1_habitat" },
+      "completionCondition": { "type": "all", "conditions": [{ "type": "puzzle_solved", "puzzleId": "puzzle_solar" }, { "type": "object_inspected", "objectId": "obj_array" }] },
+      "hidden": false, "optional": false, "estimatedMinutes": 10
+    },
+    {
+      "id": "m3_rover", "title": "Investigate the Rover", "description": "Find what the rover saw.",
+      "type": "investigation", "order": 3, "difficulty": "easy",
+      "prerequisites": [{ "type": "mission_completed", "missionId": "m1_habitat" }],
+      "objectives": [
+        { "id": "m3_o1", "type": "inspect_object", "targetId": "obj_rover", "description": "Inspect the missing rover", "optional": false },
+        { "id": "m3_o2", "type": "discover_clue", "targetId": "clue_coords", "description": "Recover the coordinate clue", "optional": false },
+        { "id": "m3_o3", "type": "collect_item", "targetId": "suit", "quantity": 1, "description": "Recover the flight suit (optional — enables flying)", "optional": true }
+      ],
+      "rewards": [{ "itemId": "datachip", "quantity": 1 }],
+      "startCondition": { "type": "mission_completed", "missionId": "m1_habitat" },
+      "completionCondition": { "type": "all", "conditions": [{ "type": "object_inspected", "objectId": "obj_rover" }, { "type": "clue_discovered", "clueId": "clue_coords" }] },
+      "hidden": false, "optional": false, "estimatedMinutes": 8
+    },
+    {
+      "id": "m4_decode", "title": "Decode the Astronaut's Message", "description": "Combine symbols and coordinates.",
+      "type": "puzzle", "order": 4, "difficulty": "hard",
+      "prerequisites": [{ "type": "mission_completed", "missionId": "m3_rover" }],
+      "objectives": [
+        { "id": "m4_o1", "type": "discover_clue", "targetId": "clue_audio", "description": "Find the helmet recording", "optional": false },
+        { "id": "m4_o2", "type": "solve_puzzle", "targetId": "puzzle_symbols", "description": "Solve the symbol combination", "optional": false }
+      ],
+      "rewards": [{ "itemId": "battery", "quantity": 1 }],
+      "startCondition": { "type": "mission_completed", "missionId": "m3_rover" },
+      "completionCondition": { "type": "all", "conditions": [{ "type": "puzzle_solved", "puzzleId": "puzzle_symbols" }] },
+      "hidden": false, "optional": false, "estimatedMinutes": 12
+    },
+    {
+      "id": "m5_lab", "title": "Find the Underground Laboratory", "description": "Open the hidden entrance and discover the truth.",
+      "type": "discovery", "order": 5, "difficulty": "hard",
+      "prerequisites": [{ "type": "mission_completed", "missionId": "m2_solar" }, { "type": "mission_completed", "missionId": "m4_decode" }],
+      "objectives": [
+        { "id": "m5_o1", "type": "solve_puzzle", "targetId": "puzzle_labcode", "description": "Open the ridge hatch", "optional": false },
+        { "id": "m5_o2", "type": "reach_location", "targetId": "loc_lab", "description": "Enter the laboratory", "optional": false }
+      ],
+      "rewards": [],
+      "startCondition": { "type": "all", "conditions": [{ "type": "mission_completed", "missionId": "m2_solar" }, { "type": "mission_completed", "missionId": "m4_decode" }] },
+      "completionCondition": { "type": "location_reached", "locationId": "loc_lab" },
+      "hidden": false, "optional": false, "estimatedMinutes": 10
+    }
+  ],
+  "clues": [
+    { "id": "clue_helmet", "title": "Damaged Helmet", "text": "The visor is cracked from the inside. Someone wanted out in a hurry.", "type": "object", "locationId": "loc_landing", "objectId": "obj_helmet", "relatedMissionId": "m3_rover", "discoveryMethod": "inspect", "visibility": "visible", "importance": "normal", "misleading": false, "optional": false, "order": 1 },
+    { "id": "clue_audio", "title": "Helmet Recording", "text": "\"...bury it. Western ridge. 7-3-4-9. Tell Earth we chose this.\"", "type": "audio", "locationId": "loc_landing", "objectId": "obj_recorder", "relatedMissionId": "m4_decode", "relatedPuzzleId": "puzzle_labcode", "discoveryMethod": "activate", "visibility": "visible", "importance": "critical", "misleading": false, "optional": false, "order": 2 },
+    { "id": "clue_terminal", "title": "Broken Terminal Log", "text": "SOL 441: Ivan ordered a full shutdown drill. SOL 442: [DATA MISSING].", "type": "note", "locationId": "loc_habitat", "objectId": "obj_terminal", "relatedMissionId": "m1_habitat", "discoveryMethod": "activate", "visibility": "visible", "importance": "normal", "misleading": false, "optional": false, "order": 3 },
+    { "id": "clue_symbol", "title": "Wall Symbols", "text": "Three glyphs: SUN, WAVE, EYE. They match the rover nav markings.", "type": "symbol", "locationId": "loc_habitat", "objectId": "obj_wall", "relatedMissionId": "m4_decode", "relatedPuzzleId": "puzzle_symbols", "discoveryMethod": "inspect", "visibility": "visible", "importance": "critical", "misleading": false, "optional": false, "order": 4 },
+    { "id": "clue_coords", "title": "Rover Coordinates", "text": "Nav fragment: ridge approach -24, -8. The rover drove itself there.", "type": "coordinate", "locationId": "loc_garage", "objectId": "obj_rover", "relatedMissionId": "m3_rover", "discoveryMethod": "inspect", "visibility": "visible", "importance": "critical", "misleading": false, "optional": false, "order": 5 },
+    { "id": "clue_maint", "title": "Maintenance Note", "text": "Solar reset order: 4-2-1-3. Never run the array backwards.", "type": "note", "locationId": "loc_solar", "objectId": "obj_controller", "relatedMissionId": "m2_solar", "relatedPuzzleId": "puzzle_solar", "discoveryMethod": "solve", "visibility": "visible", "importance": "normal", "misleading": false, "optional": true, "order": 6 },
+    { "id": "clue_map", "title": "Shelter Map", "text": "X marks a vault under the shelter floor.", "type": "map", "locationId": "loc_shelter", "objectId": "obj_map", "discoveryMethod": "inspect", "visibility": "visible", "importance": "normal", "misleading": false, "optional": true, "order": 7 },
+    { "id": "clue_labcode", "title": "Lab Access Code", "text": "Keypad hint: the recording numbers + the symbol count.", "type": "code", "locationId": "loc_ridge", "objectId": "obj_labdoor", "relatedMissionId": "m5_lab", "relatedPuzzleId": "puzzle_labcode", "discoveryMethod": "observe", "visibility": "visible", "importance": "critical", "misleading": false, "optional": false, "order": 8 },
+    { "id": "clue_skysong", "title": "Song from Above", "text": "The chime hums a lullaby Earth used to sing to its orbit stations. Someone carried music all the way here.", "type": "environmental", "locationId": "loc_landing", "objectId": "obj_skysong", "relatedMissionId": "m3_rover", "discoveryMethod": "observe", "visibility": "visible", "importance": "normal", "misleading": false, "optional": true, "order": 9 }
+  ],
+  "clueConnections": [
+    { "fromClueId": "clue_coords", "toClueId": "clue_labcode", "relation": "points_to" },
+    { "fromClueId": "clue_audio", "toClueId": "clue_labcode", "relation": "reveals" },
+    { "fromClueId": "clue_symbol", "toClueId": "clue_audio", "relation": "explains" }
+  ],
+  "puzzles": [
+    {
+      "id": "puzzle_solar", "title": "Solar Activation Sequence", "description": "Enter the 4-digit reset order. Hint: check the maintenance note.",
+      "type": "sequence", "difficulty": "easy", "locationId": "loc_solar",
+      "relatedClueIds": ["clue_maint"], "relatedMissionId": "m2_solar",
+      "inputs": [{ "id": "code", "label": "Sequence", "kind": "text" }],
+      "hints": [{ "order": 1, "text": "The maintenance note lists the order." }, { "order": 2, "text": "It starts with 4." }],
+      "rewards": [{ "itemId": "energy_cell", "quantity": 1 }],
+      "solutionHash": "hash:4213", "solution": "4213"
+    },
+    {
+      "id": "puzzle_symbols", "title": "Symbol Combination", "description": "Enter the word formed by SUN-WAVE-EYE. (Hint: a hunter constellation)",
+      "type": "symbol", "difficulty": "medium", "locationId": "loc_habitat",
+      "relatedClueIds": ["clue_symbol", "clue_coords"], "relatedMissionId": "m4_decode",
+      "inputs": [{ "id": "word", "label": "Word", "kind": "text" }],
+      "hints": [{ "order": 1, "text": "Think of the hunter in the night sky." }],
+      "rewards": [],
+      "solutionHash": "hash:orion", "solution": "ORION"
+    },
+    {
+      "id": "puzzle_labcode", "title": "Laboratory Access Code", "description": "4-digit keypad on the ridge hatch. The recording knows.",
+      "type": "code", "difficulty": "medium", "locationId": "loc_ridge",
+      "relatedClueIds": ["clue_audio", "clue_labcode"], "relatedMissionId": "m5_lab",
+      "inputs": [{ "id": "code", "label": "Code", "kind": "text" }],
+      "hints": [{ "order": 1, "text": "Play the helmet recording again." }],
+      "rewards": [],
+      "solutionHash": "hash:7349", "solution": "7349"
+    }
+  ],
+  "endings": [
+    { "id": "end_main", "title": "The Truth Below", "description": "The astronaut escaped into the lab to protect a discovery.", "condition": { "type": "location_reached", "locationId": "loc_lab" }, "secret": false },
+    { "id": "end_secret", "title": "Deliberate Silence", "description": "Ivan shut the colony down himself.", "condition": { "type": "all", "conditions": [{ "type": "puzzle_solved", "puzzleId": "puzzle_labcode" }, { "type": "clue_discovered", "clueId": "clue_audio" }] }, "secret": true },
+    { "id": "end_lore", "title": "Message from Earth", "description": "A delayed message reframes everything.", "condition": { "type": "clue_discovered", "clueId": "clue_terminal" }, "secret": false }
+  ],
+  "permissions": { "allowVisitors": true, "allowClueCreation": true, "allowBuilding": false, "allowMissionCreation": false, "allowStoryChanges": false, "contributionMode": "approval_required" },
+  "settings": { "sprintEnabled": true, "worldBounds": 60 },
+  "createdAt": "2026-09-13T00:00:00Z",
+  "updatedAt": "2026-09-13T00:00:00Z"
+}
