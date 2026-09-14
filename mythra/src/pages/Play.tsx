@@ -70,6 +70,15 @@ export default function Play() {
   const toastId = useRef(0);
   const [view, setView] = useState<ViewMode>(() => loadView());
 
+  /** Milestone moment: toast card + fanfare + spoken line. */
+  const celebrate = (name: string, desc: string, spoken: string, fanfare: "confirm" | "mission" = "confirm") => {
+    const id = ++toastId.current;
+    setToasts((q) => [...q.slice(-2), { id, name, desc }]);
+    window.setTimeout(() => setToasts((q) => q.filter((x) => x.id !== id)), 6000);
+    sfx(fanfare);
+    if (voice.enabled) speak(spoken, voice);
+  };
+
   // cinematic intro, once per story
   useEffect(() => {
     const w = useLumen.getState().world;
@@ -424,7 +433,7 @@ export default function Play() {
         useLumen.getState().completeMission(m.id, m.rewards);
         useLumen.getState().pushLog(`✅ Mission complete: ${m.title}`);
         useLumen.getState().createCheckpoint(`Mission: ${m.title}`, "auto");
-        sfx("mission");
+        celebrate(`Milestone — ${m.title}`, "Mission complete. The story moves.", `Milestone complete: ${m.title}.`, "mission");
         if (voice.enabled && voice.autoNarrate) speak(`Mission complete: ${m.title}`, voice);
         for (const r of m.rewards) if (r.unlocksLocationId) useLumen.getState().reachLocation(r.unlocksLocationId);
         const beat = MISSION_BEATS[m.id];
@@ -627,7 +636,7 @@ export default function Play() {
           {sideTab === "system" && (<><RacePanel worldId={world.id} worldName={world.name} roomId={roomId} inviteLink={inviteLink} onInvite={() => void invite()} /><CheckpointPanel worldId={world.id} /><EventLog /></>)}
         </div>
       </div>
-      {puzzle && <PuzzleModal puzzle={puzzle} onClose={() => { setPuzzleId(null); setTimeout(checkMissions, 50); }} />}
+      {puzzle && <PuzzleModal puzzle={puzzle} onClose={() => { setPuzzleId(null); setTimeout(checkMissions, 50); }} onSolved={(p) => celebrate(`Correct — ${p.title}`, "Puzzle cracked. That answer moved the story.", `Correct answer. ${p.title}, solved.`)} />}
       {showControls && <ControlsModal onClose={() => setShowControls(false)} />}
       {showCharacter && <CharacterModal onClose={() => { setCharacter(loadCharacter()); setShowCharacter(false); }} />}
       {showAudio && <AudioTestModal onClose={() => setShowAudio(false)} />}

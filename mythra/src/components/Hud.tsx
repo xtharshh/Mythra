@@ -116,7 +116,7 @@ export function InventoryStrip({ world }: { world: World }) {
   );
 }
 
-export function PuzzleModal({ puzzle, onClose }: { puzzle: Puzzle; onClose: () => void }) {
+export function PuzzleModal({ puzzle, onClose, onSolved }: { puzzle: Puzzle; onClose: () => void; onSolved?: (puzzle: Puzzle) => void }) {
   const { solvePuzzle, pushLog, collect } = useLumen();
   const [value, setValue] = useState("");
   const [hint, setHint] = useState(0);
@@ -126,6 +126,7 @@ export function PuzzleModal({ puzzle, onClose }: { puzzle: Puzzle; onClose: () =
       solvePuzzle(puzzle.id);
       for (const r of puzzle.rewards) if (r.itemId) collect(r.itemId, r.quantity ?? 1);
       pushLog(`Puzzle solved: ${puzzle.title}`);
+      onSolved?.(puzzle);
       onClose();
     } else setErr("Incorrect — check your clues and try again.");
   };
