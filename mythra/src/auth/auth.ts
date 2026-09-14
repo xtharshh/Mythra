@@ -4,8 +4,10 @@
 // sessions live in localStorage; all validators are pure and unit-tested.
 
 export interface AuthSession {
+  /** verified email — or Discord username for OAuth sign-ins */
   email: string;
   verifiedAt: string;
+  avatar?: string;
 }
 
 interface PendingCode {
@@ -35,7 +37,8 @@ export function loadSession(): AuthSession | null {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as AuthSession;
-    return s && isValidEmail(s.email) ? s : null;
+    // sessions are validated at write time (email OR Discord username)
+    return s && typeof s.email === "string" && s.email.length > 0 ? s : null;
   } catch {
     return null;
   }

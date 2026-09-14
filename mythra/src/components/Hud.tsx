@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { Puzzle, World } from "../types";
 import { checkPuzzleAnswer, objectiveProgress } from "../game/engines";
+import { decoderTables } from "../game/codes";
 import { discoverVerb } from "../game/credits";
 import { useLumen } from "../state/store";
 import { DictateButton, VoiceClipList, VoiceNoteRecorder, VoiceNotes } from "./VoiceNotes";
@@ -138,6 +139,14 @@ export function PuzzleModal({ puzzle, onClose, onSolved }: { puzzle: Puzzle; onC
         <label>Answer</label>
         <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Type answer…" />
         {err && <div style={{ color: "var(--red)", fontSize: 13, marginTop: 6 }}>{err}</div>}
+        <details style={{ marginTop: 10 }}>
+          <summary className="dossier-meta" style={{ cursor: "pointer" }}>Decoder ring — tattoos (Roman) · toggles (binary)</summary>
+          <div className="row" style={{ gap: 12, marginTop: 6, fontSize: 12 }}>
+            {decoderTables().map((r) => (
+              <span key={r.digit} className="pill">{r.digit} = {r.roman} = {r.binary}</span>
+            ))}
+          </div>
+        </details>
         <div className="row" style={{ marginTop: 10 }}>
           <button className="btn" onClick={submit}>Submit</button>
           <button className="btn-ghost" onClick={() => setHint((h) => Math.min(h + 1, puzzle.hints.length))}>Hint ({hint}/{puzzle.hints.length})</button>

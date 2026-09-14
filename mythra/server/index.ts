@@ -6,6 +6,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { randomBytes } from "node:crypto";
 import { migrateFromJson, store } from "./db.js";
+import { avatarUrl, discordAuthUrl, discordConfigured, discordEnv, displayName, exchangeCode, fetchProfile, newState } from "./discord.js";
 import { worldSchema } from "../src/schemas.js";
 
 const migrated = migrateFromJson();
@@ -24,8 +25,40 @@ const emailOf = (req: { headers: Record<string, string | string[] | undefined> }
   return store.emailForToken(token);
 };
 
-app.get("/health", async () => ({ ok: true, service: "mythra-api", store: "sqlite" }));
+app.get("/health", async () => ({ ok: true, service: "mythra-api", store: "sqlite", discord: discordConfigured() }));
 app.get("/ready", async () => ({ ok: true }));
+
+// --- Sign in with Discord (OAuth2; secret stays server-side) ---
+app.get("/api/auth/discord", async (_req, reply) => {
+  if (!discordConfigured()) {
+    return reply.code(400).send({ error: "Discord login isn't configured on this server (DISCORD_CLIENT_ID/SECRET)." });
+  }
+  const state = newState();
+  store.saveState(state);
+  return reply.redirect(discordAuthUrl(state));
+});
+
+app.get("/api/auth/discord/callback", async (req, reply) => {
+  const { code, state, error } = (req.query ?? {}) as { code?: string; state?: string; error?: string };
+  const frontend = discordEnv().frontendUrl;
+  const fail = (msg: string) => reply.redirect(`${frontend}/?authError=${encodeURIComponent(msg)}`);
+  if (error) return fail(`Discord said no (${error}).`);
+  if (!code || !state || !store.consumeState(state)) return fail("Bad or expired login attempt — try again.");
+  try {
+    const { accessToken } = await exchangeCode(code);
+    const profile = await fetchProfile(accessToken);
+    store.upsertDiscordUser(profile.id, profile.username, profile.globalName, profile.avatar);
+    const name = displayName(profile);
+    const token = randomBytes(24).toString("hex");
+    store.addToken(token, name);
+    const avatar = avatarUrl(profile);
+    return reply.redirect(
+      `${frontend}/?session=${encodeURIComponent(token)}&user=${encodeURIComponent(name)}${avatar ? `&avatar=${encodeURIComponent(avatar)}` : ""}`,
+    );
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Discord login failed.");
+  }
+});
 
 // --- email code login (demo: code returned; plug a mailer later) ---
 app.post("/api/auth/code", async (req, reply) => {

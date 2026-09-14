@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { clearSession, isValidEmail, loadSession, normalizeEmail, requestLoginCode, verifyLoginCode } from "../auth/auth";
 import type { AuthSession } from "../auth/auth";
-import { api, apiOn, setApiToken } from "../api/client";
+import { api, apiOn, discordLoginUrl, setApiToken } from "../api/client";
 import { useLumen } from "../state/store";
 import { Icon } from "./icons";
 
@@ -119,6 +119,16 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
           </>
         )}
         {err && <div style={{ color: "var(--red)", fontSize: 13, marginTop: 8 }}>{err}</div>}
+        <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+          <div className="dossier-meta" style={{ marginBottom: 6 }}>or skip the code —</div>
+          {discordLoginUrl() ? (
+            <a className="btn" style={{ display: "inline-flex", gap: 8, alignItems: "center", background: "#5865F2", color: "#fff", borderColor: "#2b2f6b" }} href={discordLoginUrl()!} title="Sign in with Discord — username shows everywhere">
+              <Icon name="discord" size={15} /> Sign in with Discord
+            </a>
+          ) : (
+            <div className="muted" style={{ fontSize: 12 }}>Discord sign-in needs the API connected (VITE_API_URL).</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -142,8 +152,11 @@ export function AuthButton({ onSignIn }: { onSignIn: () => void }) {
     loadCheckpoints();
   };
   return (
-    <button className="btn-ghost" title={`Signed in as ${session.email} — click to sign out`} onClick={logout}>
-      <Icon name="check" /> {session.email.split("@")[0]}
+    <button className="btn-ghost" title={`Signed in as ${session.email} — click to sign out`} onClick={logout} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+      {session.avatar
+        ? <img src={session.avatar} alt="" width={18} height={18} style={{ borderRadius: "50%" }} />
+        : <Icon name="check" />}
+      {session.email.split("@")[0]}
     </button>
   );
 }

@@ -7,7 +7,7 @@ export type IconName =
   | "search" | "puzzle" | "wrench" | "rocket" | "note" | "mic" | "speaker"
   | "play" | "save" | "fly" | "pin" | "book" | "check" | "plus" | "arrow"
   | "planet" | "signal" | "close" | "spark" | "voice"   | "log" | "fork"
-  | "warn" | "idea" | "stop" | "coffee";
+  | "warn" | "idea" | "stop" | "coffee" | "discord";
 
 const PATHS: Record<IconName, string> = {
   search: "M11 4a7 7 0 1 0 4.9 12L21 21l-1.4 1.4-5.1-5.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z",
@@ -36,6 +36,7 @@ const PATHS: Record<IconName, string> = {
   idea: "M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2ZM9 20h6v2H9v-2Z",
   stop: "M5 5h14v14H5V5Z",
   coffee: "M5 8h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8Zm12 1h1.5a2.5 2.5 0 0 1 0 5H17v-5ZM7 2h7v2H7V2Z",
+  discord: "M20.3 4.1A19.8 19.8 0 0 0 15.4 2.6l-.2.5a18 18 0 0 1 4.5 1.1 18.6 18.6 0 0 0-15.4 0A18 18 0 0 1 8.8 3l-.2-.5A19.8 19.8 0 0 0 3.7 4C.3 9.1-.3 13.9.4 18.6a19.9 19.9 0 0 0 6 3l1.5-2.4a12.9 12.9 0 0 1-2-1l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4a12.9 12.9 0 0 1-2 1l1.5 2.4a19.9 19.9 0 0 0 6-3c.8-5.4-.1-10.1-1.3-14.5ZM8.7 15.3a2.4 2.4 0 1 1 0-4.8 2.4 2.4 0 0 1 0 4.8Zm6.6 0a2.4 2.4 0 1 1 0-4.8 2.4 2.4 0 0 1 0 4.8Z",
 };
 
 export function Icon({ name, size = 16, style }: { name: IconName; size?: number; style?: CSSProperties }) {

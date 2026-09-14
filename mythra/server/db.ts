@@ -72,6 +72,17 @@ CREATE TABLE IF NOT EXISTS presence (
   PRIMARY KEY (world_id, email)
 );
 CREATE INDEX IF NOT EXISTS idx_presence_ts ON presence(world_id, ts);
+CREATE TABLE IF NOT EXISTS discord_users (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL,
+  global_name TEXT,
+  avatar TEXT,
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS oauth_state (
+  state TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);
 `);
 
 export interface RaceRow {
@@ -203,8 +214,7 @@ export const store = {
   },
 
   // presence
-  heartbeat(worldId: string, email: string, pos: [number, number, number], suit: string, room: string): void {
-    db.prepare("INSERT INTO presence (world_id, email, pos, suit, room, ts) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(world_id, email) DO UPDATE SET pos=excluded.pos, suit=excluded.suit, room=excluded.room, ts=excluded.ts").run(
+  heartbeat(worldId: string, email: string, pos: [number, number, number], suit: string, room: string): void {    db.prepare("INSERT INTO presence (world_id, email, pos, suit, room, ts) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(world_id, email) DO UPDATE SET pos=excluded.pos, suit=excluded.suit, room=excluded.room, ts=excluded.ts").run(
       worldId, email, JSON.stringify(pos), suit, room, Date.now(),
     );
   },
@@ -225,6 +235,23 @@ export const store = {
       out.push({ user: r.email.split("@")[0], pos, suit: r.suit, room: r.room });
     }
     return out;
+  },
+
+  // discord users + one-time oauth states
+  upsertDiscordUser(id: string, username: string, globalName: string | null, avatar: string | null): void {
+    db.prepare("INSERT INTO discord_users (id, username, global_name, avatar, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET username=excluded.username, global_name=excluded.global_name, avatar=excluded.avatar, updated_at=excluded.updated_at").run(
+      id, username, globalName, avatar, new Date().toISOString(),
+    );
+  },
+  saveState(state: string): void {
+    db.prepare("DELETE FROM oauth_state WHERE created_at < ?").run(Date.now() - 10 * 60 * 1000);
+    db.prepare("INSERT INTO oauth_state (state, created_at) VALUES (?, ?)").run(state, Date.now());
+  },
+  consumeState(state: string): boolean {
+    const row = db.prepare("SELECT state FROM oauth_state WHERE state = ?").get(state) as { state: string } | undefined;
+    if (!row) return false;
+    db.prepare("DELETE FROM oauth_state WHERE state = ?").run(state);
+    return true;
   },
 };
 

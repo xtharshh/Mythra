@@ -16,6 +16,12 @@ export function apiBase(): string | null {
 
 export const apiOn = (): boolean => apiBase() !== null;
 
+/** OAuth entry for Sign in with Discord (null when API is off). */
+export function discordLoginUrl(): string | null {
+  const base = apiBase();
+  return base ? `${base}/api/auth/discord` : null;
+}
+
 /** Round-trip latency to the API in ms, or null when unreachable. */
 export async function pingApi(): Promise<number | null> {
   const base = apiBase();

@@ -11,6 +11,8 @@ import { Logo } from "./components/Logo";
 import { SupportButton } from "./components/Support";
 import { apiOn, formatPing, pingApi } from "./api/client";
 import { useLumen } from "./state/store";
+import { setApiToken } from "./api/client";
+import { saveSession } from "./auth/auth";
 import { applyTheme, themeForWorld } from "./theme/theme";
 import demo from "./data/demo-world.json";
 import type { World } from "./types";
@@ -54,6 +56,29 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
   const [ping, setPing] = useState<number | null>(null);
   const connected = apiOn();
   useEffect(() => { loadLibrary(); loadVoiceNotes(); loadCheckpoints(); }, [loadLibrary, loadVoiceNotes, loadCheckpoints]);
+
+  // Discord OAuth landing: ?session=&user=[&avatar=] → signed in
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const token = q.get("session");
+      const user = q.get("user");
+      const authError = q.get("authError");
+      if (authError) {
+        useLumen.getState().pushLog(`Discord sign-in failed: ${authError}`);
+      } else if (token && user) {
+        setApiToken(token);
+        saveSession({ email: user, verifiedAt: new Date().toISOString(), avatar: q.get("avatar") ?? undefined });
+        useLumen.getState().pushLog(`Signed in with Discord as ${user}.`);
+        useLumen.getState().loadCheckpoints();
+      }
+      if (token || authError) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   // live API ping for the station chip — null = local/offline
   useEffect(() => {
