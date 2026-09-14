@@ -27,7 +27,7 @@ describe("i18n (every country reads the mission)", () => {
     expect(enKeys.length).toBeGreaterThan(20);
     for (const { id } of LANGS) {
       expect(Object.keys(DICTS[id].chrome).sort()).toEqual(enKeys);
-      expect(DICTS[id].steps).toHaveLength(7);
+      expect(DICTS[id].steps).toHaveLength(12);
       for (const s of DICTS[id].steps) {
         expect(s.title.length).toBeGreaterThan(0);
         expect(s.text.length).toBeGreaterThan(20);

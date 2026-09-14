@@ -155,7 +155,7 @@ export default function Explore() {
     <div className="layout">
       <div className="case-kicker">◈ story archive · every published tale, ready to solve</div>
       <h2 className="case-title" style={{ fontSize: 34 }}>Find a <em>mystery.</em></h2>
-      <p className="muted">Publish a story and it lands here for every solver — plays and ratings included. Carry tales between deployments with share codes.</p>
+      <p className="muted">Shared stories land here for every player — with play counts and ratings. Carry tales between sites with share codes.</p>
 
       <div className="console" style={{ marginTop: 14 }}>
         <div className="console-bar">Archive index · search · filter · carry</div>

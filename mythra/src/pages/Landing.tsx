@@ -41,9 +41,9 @@ export default function Landing() {
             {world.story.premise} {world.story.background} You are {world.story.playerRole}
           </p>
           <div className="row" style={{ marginTop: 18 }}>
-            <Link className="btn btn-big" to="/play"><Icon name="play" size={15} /> Begin descent</Link>
-            <Link className="btn-ghost" to="/create">Expedition planner</Link>
-            <Link className="btn-ghost" to="/explore">Mission archive</Link>
+            <Link className="btn btn-big" to="/play"><Icon name="play" size={15} /> Play</Link>
+            <Link className="btn-ghost" to="/create">Make a story</Link>
+            <Link className="btn-ghost" to="/explore">Browse stories</Link>
             <SupportButton />
           </div>
           <div className="dossier-meta" style={{ marginTop: 12 }}>

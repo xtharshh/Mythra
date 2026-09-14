@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { migrateFromJson, store } from "./db.js";
+import { store } from "./db.js";
 import { avatarUrl, discordAuthUrl, discordConfigured, discordEnv, displayName, exchangeCode, fetchProfile, newState } from "./discord.js";
 import { worldSchema } from "../src/schemas.js";
 import { validateWorld } from "../src/game/engines.js";
@@ -67,13 +67,21 @@ function loadDotEnv(): void {
 loadDotEnv();
 
 const usingPostgres = !!process.env.DATABASE_URL;
+let schemaError: string | null = null;
 if (usingPostgres) {
-  const { neon } = await import("@neondatabase/serverless");
-  const { ensurePgSchema } = await import("./pg.js");
-  await ensurePgSchema(neon(process.env.DATABASE_URL ?? "") as never);
+  try {
+    const { neon } = await import("@neondatabase/serverless");
+    const { ensurePgSchema } = await import("./pg.js");
+    await ensurePgSchema(neon(process.env.DATABASE_URL ?? "") as never);
+  } catch (e) {
+    schemaError = e instanceof Error ? e.message : "Postgres schema failed";
+    console.error(`Database schema error: ${schemaError}`);
+  }
 }
 
-const migrated = await migrateFromJson(store);
+const migrated = usingPostgres
+  ? []
+  : await (await import("./sqlite.js")).migrateFromJson(store);
 if (migrated.length > 0) console.log(`Migrated legacy tables: ${migrated.join(", ")}`);
 
 const app = Fastify({ logger: false, trustProxy: true });
@@ -117,7 +125,13 @@ const emailOf = async (req: { headers: Record<string, string | string[] | undefi
   return store.emailForToken(token);
 };
 
-app.get("/health", async () => ({ ok: true, service: "mythio-api", store: usingPostgres ? "postgres" : "sqlite", discord: discordConfigured() }));
+app.get("/health", async () => ({
+  ok: !schemaError,
+  service: "mythio-api",
+  store: usingPostgres ? "postgres" : "sqlite",
+  discord: discordConfigured(),
+  ...(schemaError ? { dbError: schemaError } : {}),
+}));
 app.get("/ready", async () => ({ ok: true }));
 
 // --- Sign in with Discord (OAuth2; secret stays server-side) ---

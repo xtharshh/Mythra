@@ -79,10 +79,10 @@ export function RacePanel({ worldId, worldName, roomId, inviteLink, onInvite }: 
         <div style={{ marginTop: 6 }}>
           <div className="muted" style={{ fontSize: 13 }}>
             {!connected
-              ? "No API: set VITE_API_URL=http://localhost:4000 in mythra/.env, restart npm run dev. The link below still carries the tale itself."
+              ? "No game server: the link below still carries the whole story for solo play."
               : !authed
-                ? "API reachable, but this session has no API token — sign OUT and sign back IN once, then invite."
-                : "Send a join link — solvers land in YOUR story, live on the speed board, visible in your sky."}
+                ? "Server reached, but you are not signed in — sign OUT and back IN once, then invite."
+                : "Send a join link — friends land in YOUR story and race you live."}
           </div>
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn" onClick={onInvite}><Icon name="plus" size={12} /> Invite solvers</button>

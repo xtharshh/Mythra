@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { loadVoiceSettings, speak, stopSpeaking } from "../audio/voice";
-import { t, tutorialSteps, useLang } from "../i18n/lang";
+import { t, tutorialSteps, useLang, DICTS } from "../i18n/lang";
 import type { TutStep } from "../i18n/lang";
 
 const TUTORIAL_KEY = "mythra-tutorial-v1";
@@ -36,50 +36,7 @@ export interface TutorialStep {
 }
 
 /** English reels (test + fallback reference). UI uses tutorialSteps(lang). */
-export const TUTORIAL_STEPS: TutorialStep[] = [
-  {
-    reel: "Briefing · what this is",
-    title: "You are the solver.",
-    text: "Mythio forges any story into a walkable world. This colony went silent on Sol 442 — walk it, read it, fix it, and decide what Earth hears.",
-    controls: "Watch · listen · then take the controls",
-  },
-  {
-    reel: "Lesson 01 · move",
-    title: "Boots on dust.",
-    text: "WASD walks the surface. Hold Shift to sprint across the ridge, Space to jump the debris. Your explorer is always visible in third person.",
-    controls: "WASD move · Shift sprint · Space jump",
-  },
-  {
-    reel: "Lesson 02 · look",
-    title: "Eyes up, solver.",
-    text: "Drag the mouse to look around the colony. Press V to swap between third person and your own visor — first person sees what you see.",
-    controls: "Drag look · V camera",
-  },
-  {
-    reel: "Lesson 03 · touch",
-    title: "Everything answers.",
-    text: "Aim the reticle at anything glowing — rover, terminal, scrap, survivor — and press E (or click) to inspect, collect, talk, or repair it.",
-    controls: "Aim + E interact · click works too",
-  },
-  {
-    reel: "Lesson 04 · solve",
-    title: "Follow the evidence.",
-    text: "Missions track in the side panel, clues file into your journal, and locked hatches open on puzzle answers. Stuck? Every puzzle carries hints on the radio.",
-    controls: "Missions · Journal · Hints",
-  },
-  {
-    reel: "Lesson 05 · fly",
-    title: "Earn the sky.",
-    text: "Salvage what the colony left behind. Find the flight-suit locker and the sky opens: F toggles thrusters, Space climbs, C dives.",
-    controls: "F fly · Space up · C down",
-  },
-  {
-    reel: "Lesson 06 · keep",
-    title: "Never lose a run.",
-    text: "Saves and named checkpoints file under your login — per explorer, always. Open a race room to solve against friends, live, in scenario suits.",
-    controls: "Menu → Save · Checkpoints · Invite solvers",
-  },
-];
+export const TUTORIAL_STEPS: TutorialStep[] = DICTS.en.steps;
 
 function useTypewriter(text: string, speed = 14): string {
   const [n, setN] = useState(0);
