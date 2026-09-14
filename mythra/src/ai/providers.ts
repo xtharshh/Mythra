@@ -419,11 +419,27 @@ export function repairWorldShape(parsed: unknown): void {
     settings?: Record<string, unknown> | null;
   };
   const list = (v: unknown): Array<Record<string, unknown>> => (Array.isArray(v) ? (v as Array<Record<string, unknown>>) : []);
+  // every enum the model likes to paraphrase — map or fall back (defined
+  // first: everything below uses these)
+  const asEnum = (v: unknown, valid: string[], aliases: Record<string, string>, fallback: string): string => {
+    const s = String(v ?? "").toLowerCase().trim().replace(/[\s-]+/g, "_");
+    if (valid.includes(s)) return s;
+    if (aliases[s]) return aliases[s];
+    return fallback;
+  };
+  const locIds = new Set(list(w.locations).map((l) => String(l.id)));
+  const firstLoc = String(list(w.locations)[0]?.id ?? "loc_landing");
+  const validLoc = (v: unknown): string => (typeof v === "string" && locIds.has(v) ? v : firstLoc);
   for (const m of list(w.missions)) {
     if (typeof m.hidden !== "boolean") m.hidden = false;
     if (typeof m.optional !== "boolean") m.optional = false;
     if (!Array.isArray(m.prerequisites)) m.prerequisites = [];
     if (!Array.isArray(m.rewards)) m.rewards = [];
+    if (typeof m.title !== "string" || !m.title) m.title = "Unmarked mission";
+    if (typeof m.description !== "string") m.description = "";
+    m.type = asEnum(m.type, ["investigation", "collection", "construction", "repair", "exploration", "puzzle", "rescue", "survival", "delivery", "conversation", "discovery"], {}, "exploration");
+    m.difficulty = asEnum(m.difficulty, DIFFICULTIES, DIFFICULTY_ALIASES, "medium");
+    if (typeof m.estimatedMinutes !== "number") m.estimatedMinutes = 5;
     for (const o of list(m.objectives)) {
       if (typeof o.optional !== "boolean") o.optional = false;
     }
@@ -435,6 +451,12 @@ export function repairWorldShape(parsed: unknown): void {
       const k = c.importance.toLowerCase().trim();
       if (!["minor", "normal", "critical"].includes(k)) c.importance = IMPORTANCE_ALIASES[k] ?? "normal";
     }
+    if (typeof c.title !== "string" || !c.title) c.title = "Unmarked clue";
+    if (typeof c.text !== "string") c.text = "";
+    c.type = asEnum(c.type, CLUE_TYPES, {}, "note");
+    c.discoveryMethod = asEnum(c.discoveryMethod, DISCOVERY_METHODS, {}, "observe");
+    if (typeof c.visibility !== "string" || !VISIBILITIES.includes(c.visibility)) c.visibility = "visible";
+    c.locationId = validLoc(c.locationId);
   }
   for (const l of list(w.locations)) {
     if (typeof l.locked !== "boolean") l.locked = false;
@@ -461,6 +483,10 @@ export function repairWorldShape(parsed: unknown): void {
   }
   for (const r of list(w.resources)) {
     if (typeof r.stackable !== "boolean") r.stackable = true;
+    if (typeof r.maxStack !== "number" || r.maxStack < 1) r.maxStack = 99;
+    if (typeof r.name !== "string" || !r.name) r.name = "Supply";
+    if (typeof r.description !== "string") r.description = "";
+    r.category = asEnum(r.category, ["material", "energy", "tool", "key_item", "food", "oxygen", "currency"], {}, "material");
   }
   for (const e of list(w.endings)) {
     if (typeof e.secret !== "boolean") e.secret = false;
@@ -481,9 +507,24 @@ export function repairWorldShape(parsed: unknown): void {
     if (!Array.isArray(p.hints)) p.hints = [];
     if (!Array.isArray(p.rewards)) p.rewards = [];
     if (!Array.isArray(p.relatedClueIds)) p.relatedClueIds = [];
+    p.type = asEnum(p.type, PUZZLE_TYPES, {}, "sequence");
+    p.difficulty = asEnum(p.difficulty, DIFFICULTIES, DIFFICULTY_ALIASES, "medium");
+    p.locationId = validLoc(p.locationId);
+    if (typeof p.title !== "string" || !p.title) p.title = "Unmarked puzzle";
+    if (typeof p.description !== "string") p.description = "";
+    if (typeof p.solutionHash !== "string" || !p.solutionHash) {
+      p.solutionHash = typeof p.solution === "string" && p.solution ? `hash:${p.solution.toLowerCase()}` : "hash:open";
+    }
+    p.hints = list(p.hints).map((h, idx) => ({
+      order: typeof h.order === "number" && Number.isInteger(h.order) ? h.order : idx + 1,
+      text: typeof h.text === "string" ? h.text : "",
+    }));
   }
   for (const ch of list((w as { characters?: unknown }).characters)) {
     if (!Array.isArray(ch.dialogue)) ch.dialogue = [];
+    if (typeof ch.role !== "string") ch.role = "";
+    if (typeof ch.name !== "string" || !ch.name) ch.name = "Unknown voice";
+    ch.locationId = validLoc(ch.locationId);
   }
   // branding lengths the contract caps
   const b = (w as { branding?: Record<string, unknown> }).branding;
@@ -491,6 +532,18 @@ export function repairWorldShape(parsed: unknown): void {
     if (typeof b.station === "string") b.station = b.station.slice(0, 24) || "FIELD BASE";
     if (typeof b.sol === "string") b.sol = b.sol.slice(0, 16) || "SOL 001";
     if (typeof b.tagline === "string") b.tagline = b.tagline.slice(0, 80);
+  }
+  for (const o of list((w as { objects?: unknown }).objects)) {
+    o.type = asEnum(o.type, OBJECT_TYPES, OBJECT_TYPE_ALIASES, "artifact");
+    if (typeof o.modelId !== "string" || !MODEL_IDS.includes(o.modelId)) delete o.modelId;
+    if (typeof o.name !== "string" || !o.name) o.name = "Unmarked find";
+    if (typeof o.description !== "string") o.description = "";
+    o.locationId = validLoc(o.locationId);
+    const ix = o.interaction as Record<string, unknown> | undefined;
+    if (ix && typeof ix === "object") {
+      ix.kind = asEnum(ix.kind, INTERACTION_KINDS, {}, "inspect");
+    }
+    if (typeof o.visibility !== "string" || !["visible", "hidden", "locked"].includes(o.visibility)) o.visibility = "visible";
   }
   // top-level enums models paraphrase
   const ww = w as Record<string, unknown>;
@@ -572,6 +625,28 @@ const IMPORTANCE_ALIASES: Record<string, string> = {
 };
 
 const INPUT_KINDS = ["text", "choice", "sequence"];
+
+const OBJECT_TYPES = ["building", "door", "terminal", "resource_node", "vehicle", "artifact", "note", "map", "portal", "npc", "container", "machine", "landmark", "crystal", "creature"];
+const OBJECT_TYPE_ALIASES: Record<string, string> = {
+  lighthouse: "building", tower: "building", house: "building", hut: "building", station: "building",
+  antenna: "machine", telescope: "machine", generator: "machine", engine: "machine", drill: "machine",
+  computer: "terminal", screen: "terminal", console_table: "terminal",
+  bed: "container", table: "container", shelf: "container", chest: "container", box: "container", bedroll: "container",
+  person: "npc", survivor: "npc", robot: "npc", alien: "creature", animal: "creature", monster: "creature",
+  rock: "landmark", statue: "landmark", sign: "landmark", memorial: "landmark",
+  plant: "crystal", flower: "crystal", mushroom: "crystal", shard: "crystal",
+  tool: "artifact", device: "artifact", item: "artifact", relic: "artifact",
+  gate: "door", entrance: "door", exit: "door",
+  car: "vehicle", truck: "vehicle", bike: "vehicle",
+};
+const MODEL_IDS = ["console", "solar", "rover", "hatch", "beacon", "drone", "locker", "core", "helmet", "recorder", "glyphwall", "maptable", "skychime", "scrap", "campfire", "tent", "tree", "torch", "crystal"];
+const INTERACTION_KINDS = ["inspect", "collect", "solve", "talk", "activate", "repair", "build"];
+const CLUE_TYPES = ["note", "symbol", "audio", "visual", "object", "dialogue", "map", "environmental", "code", "pattern", "coordinate"];
+const DISCOVERY_METHODS = ["inspect", "collect", "solve", "talk", "observe", "activate", "combine"];
+const VISIBILITIES = ["visible", "hidden", "locked", "requires_item", "requires_mission"];
+const PUZZLE_TYPES = ["sequence", "logic", "code", "symbol", "circuit", "map", "dialogue", "resource", "spatial", "observation"];
+const DIFFICULTIES = ["beginner", "easy", "medium", "hard", "expert"];
+const DIFFICULTY_ALIASES: Record<string, string> = { normal: "medium", average: "medium", easyish: "easy", extreme: "expert" };
 
 /** Map the model's paraphrases onto strict theme ids. Pure. */
 export function normalizeThemeId(value: unknown): string {

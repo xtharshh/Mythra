@@ -51,6 +51,7 @@ describe("universal AI providers", () => {
       clues: [{ importance: "HIGH" }],
       puzzles: [{ inputs: [{ id: "a", label: "A", kind: "number" }] }],
       locations: [{ position: [0, 0, 0] }],
+      objects: [{ id: 3, type: "lighthouse", modelId: "made-up", locationId: "nope", interaction: { kind: "open" } }],
     };
     repairWorldShape(raw);
     const m = (raw.missions as Array<Record<string, unknown>>)[0];
@@ -61,6 +62,10 @@ describe("universal AI providers", () => {
     expect((raw.clues as Array<Record<string, unknown>>)[0].importance).toBe("critical");
     expect(((raw.puzzles as Array<Record<string, unknown>>)[0].inputs as Array<Record<string, unknown>>)[0].kind).toBe("text");
     expect((raw.locations as Array<Record<string, unknown>>)[0].locked).toBe(false);
+    const o = (raw.objects as Array<Record<string, unknown>>)[0];
+    expect(o.type).toBe("building");
+    expect(o.modelId).toBeUndefined();
+    expect((o.interaction as Record<string, unknown>).kind).toBe("inspect");
   });
 
   it("briefs chapter drafts with tale context + strict shape", () => {
