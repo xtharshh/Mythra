@@ -2,6 +2,10 @@
 
 Browser 3D mystery game engine: any genre, any story in — interactive realistic 3D world out. See `/skills.md`, `/architecture.md`, `/implementations.md` at repo root and `LUMEN_Full_Game_Documentation.md` for the full spec.
 
+## License — proprietary, all rights reserved
+
+MYTHRA is NOT open source. See [`LICENSE`](../LICENSE) at repo root: no use, copying, distribution, or derivatives without HARSH KUMAR's written permission. Playing the hosted game is allowed; everything else needs a yes in writing.
+
 ## Setup
 
 Requirements: Node.js 20+, npm.

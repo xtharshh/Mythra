@@ -29,6 +29,13 @@ import { BINDS_EVENT } from "../components/Controls";
 import { isDown, loadBinds, prettyCode } from "../game/controls";
 import type { Binds } from "../game/controls";
 
+export interface PeerPresence {
+  user: string;
+  pos: [number, number, number];
+  suit: number;
+  accent: number;
+}
+
 interface Props {
   world: World;
   flyMode: boolean;
@@ -38,6 +45,7 @@ interface Props {
   onPositionChange: (pos: [number, number, number]) => void;
   onToggleFlyRequest: () => void;
   onTargetChange?: (obj: WorldObject | null) => void;
+  peers?: PeerPresence[];
   focusedObjectId?: string | null;
 }
 
@@ -74,8 +82,7 @@ function setGlow(root: THREE.Object3D, v: number): void {
   });
 }
 
-function firstStd(root: THREE.Object3D): THREE.MeshStandardMaterial | null {
-  let out: THREE.MeshStandardMaterial | null = null;
+function firstStd(root: THREE.Object3D): THREE.MeshStandardMaterial | null {  let out: THREE.MeshStandardMaterial | null = null;
   root.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!out && m.isMesh) {
@@ -93,7 +100,32 @@ function hintHTML(b: Binds): string {
   return `WASD move · drag look · ${k("interact")} interact · Shift sprint · ${k("flyToggle")} fly · ${k("flyUp")}/${k("flyDown")} up/down · Space jump`;
 }
 
-export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange }: Props) {
+/** Floating username plate above a remote explorer. */
+function makeNameTag(name: string): THREE.Mesh {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 64;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "rgba(5,5,15,0.78)";
+  g.fillRect(8, 8, 240, 48);
+  g.strokeStyle = "#ffb45e";
+  g.lineWidth = 3;
+  g.strokeRect(8, 8, 240, 48);
+  g.font = "bold 26px monospace";
+  g.textAlign = "center";
+  g.fillStyle = "#ffd9a8";
+  g.fillText(name.slice(0, 14), 128, 43);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.4, 0.35),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
+  );
+  m.position.y = 2.2;
+  return m;
+}
+
+export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({
     keys: new Set<string>(),
@@ -108,6 +140,8 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     grounded: true,
   });
   const bindsRef = useRef(loadBinds());
+  const peersRef = useRef<PeerPresence[]>(peers ?? []);
+  peersRef.current = peers ?? [];
   const callbacks = useRef({ onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange });
   callbacks.current = { onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange };
   const flags = useRef({ flyMode, hasSuit });
@@ -365,6 +399,8 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     astro.group.position.set(2, 0, 4);
     scene.add(astro.group);
     effects.push(astro);
+    // remote explorers (multiplayer presence), keyed by username
+    const peerMap = new Map<string, { astro: Astronaut; tag: THREE.Mesh; lastSeen: number; prevX: number; prevZ: number }>();
     const patrol: [number, number][] = [[2, 4], [9, -3], [15, 3], [18, 7], [10, 11], [1, 9]];
     let wpIdx = 1;
 
@@ -568,6 +604,47 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
         }
       }
 
+      // --- fellow explorers: remote presence in scenario suits + name tags
+      {
+        const nowMs = performance.now();
+        for (const p of peersRef.current.slice(0, 12)) {
+          let rec = peerMap.get(p.user);
+          if (!rec) {
+            const astro = new Astronaut(p.suit, p.accent);
+            const tag = makeNameTag(p.user);
+            astro.group.add(tag);
+            astro.group.position.set(p.pos[0], 0, p.pos[2]);
+            scene.add(astro.group);
+            effects.push(astro);
+            rec = { astro, tag, lastSeen: nowMs, prevX: p.pos[0], prevZ: p.pos[2] };
+            peerMap.set(p.user, rec);
+          }
+          rec.lastSeen = nowMs;
+          const gx = rec.astro.group.position.x, gz = rec.astro.group.position.z;
+          const dx = p.pos[0] - gx, dz = p.pos[2] - gz;
+          const dist = Math.hypot(dx, dz);
+          if (dist > 0.15) {
+            const step = Math.min(dist, 3.2 * dt);
+            rec.astro.group.position.x += (dx / dist) * step;
+            rec.astro.group.position.z += (dz / dist) * step;
+            rec.astro.state.moving = true;
+            turnTo(rec.astro.group, Math.atan2(dx, dz), dt);
+          } else {
+            rec.astro.state.moving = false;
+          }
+          rec.tag.lookAt(camera.position);
+        }
+        for (const [user, rec] of [...peerMap]) {
+          if (nowMs - rec.lastSeen > 20000) {
+            scene.remove(rec.astro.group);
+            const idx = effects.indexOf(rec.astro);
+            if (idx >= 0) effects.splice(idx, 1);
+            rec.astro.dispose();
+            peerMap.delete(user);
+          }
+        }
+      }
+
       // interaction raycast (center of screen, recursive into detailed models)
       raycaster.setFromCamera(center, camera);
       raycaster.far = 7;
@@ -659,6 +736,8 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
         r.mat.dispose();
       }
       for (const e of effects) e.dispose();
+      for (const [, rec] of peerMap) rec.astro.dispose();
+      peerMap.clear();
       rush.dispose();
       rocks.dispose();
       craters.traverse((o) => {

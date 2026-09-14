@@ -16,8 +16,15 @@ import {
   saveVoiceSettings, speak, startListening, stopSpeaking, warmVoices,
 } from "../audio/voice";
 import { triggerObject } from "../three/effects";
+import type { PeerPresence } from "../three/LumenScene";
+import { api, apiOn } from "../api/client";
+import { loadSession } from "../auth/auth";
+import { suitForUser } from "../game/suits";
 import type { VoiceSettings } from "../audio/voice";
 import { ControlsModal } from "../components/Controls";
+import { MilestoneModal } from "../components/Milestone";
+import type { MilestoneStats } from "../social/milestone";
+import { saveOwner } from "../auth/auth";
 
 export default function Play() {
   const s = useLumen();
@@ -32,6 +39,8 @@ export default function Play() {
   const [listening, setListening] = useState(false);
   const [target, setTarget] = useState<WorldObject | null>(null);
   const [showControls, setShowControls] = useState(false);
+  const [peers, setPeers] = useState<PeerPresence[]>([]);
+  const [milestone, setMilestone] = useState<MilestoneStats | null>(null);
   const stopListenRef = useRef<(() => void) | null>(null);
   const shownBeats = useRef(new Set<string>());
   const toastId = useRef(0);
@@ -148,6 +157,47 @@ export default function Play() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.world?.id]);
 
+  // multiplayer presence: heartbeat + roster (only with API connected)
+  useEffect(() => {
+    if (!apiOn() || !s.world?.id) {
+      setPeers([]);
+      return;
+    }
+    const worldId = s.world.id;
+    const theme = s.world.theme;
+    let alive = true;
+    const beat = async () => {
+      const st = useLumen.getState();
+      await api.heartbeat(worldId, st.playerPos, theme);
+      const list = await api.peers(worldId);
+      if (!alive || !list) return;
+      const me = (loadSession()?.email ?? "").split("@")[0];
+      setPeers(
+        list
+          .filter((p) => p.user !== me)
+          .map((p) => {
+            const spec = suitForUser(p.user, theme);
+            return { user: p.user, pos: p.pos, suit: spec.suit, accent: spec.accent };
+          }),
+      );
+    };
+    void beat();
+    const id = window.setInterval(() => void beat(), 4000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [s.world?.id]);
+
+  // leaderboard: personal best follows missions + clues (best-effort)
+  useEffect(() => {
+    if (!apiOn() || !s.world?.id) return;
+    const t = window.setTimeout(() => {
+      void api.submitScore(s.world!.id, s.completedMissions.length, s.discoveredClues.length);
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [s.world?.id, s.completedMissions, s.discoveredClues]);
+
   const world = s.world ?? (structuredClone(demo) as unknown as World);
   const report = useMemo(() => validateWorld(world), [world]);
   const puzzle = world.puzzles.find((p) => p.id === puzzleId) ?? null;
@@ -221,6 +271,33 @@ export default function Play() {
         useLumen.getState().pushLog(`${e.secret ? "🤫 Secret ending" : "🏁 Ending"}: ${e.title}`);
       }
     }
+    // 100% milestone: every mission + every clue → brag card (once per explorer)
+    {
+      const gs = useLumen.getState().gameState();
+      const allMissions = world.missions.length > 0 && world.missions.every((m) => gs.completedMissions.has(m.id));
+      const allClues = world.clues.length > 0 && world.clues.every((c) => gs.discoveredClues.has(c.id));
+      if (allMissions && allClues) {
+        const key = `mythra-milestone:${world.id}:${saveOwner()}`;
+        try {
+          if (!localStorage.getItem(key)) {
+            localStorage.setItem(key, new Date().toISOString());
+            const email = saveOwner();
+            setMilestone({
+              user: email === "guest" ? "guest explorer" : email.split("@")[0],
+              worldName: world.name,
+              theme: world.theme,
+              missions: world.missions.length,
+              missionsTotal: world.missions.length,
+              clues: world.clues.length,
+              cluesTotal: world.clues.length,
+              date: new Date().toLocaleDateString(),
+            });
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    }
   };
 
   useEffect(() => { checkMissions(); // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -278,7 +355,7 @@ export default function Play() {
       </div>
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} />
+          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} />
           {target && (
             <button
               className="btn"
@@ -313,6 +390,7 @@ export default function Play() {
       {introOpen && <StoryIntro world={world} onBegin={beginIntro} />}
       <Toasts toasts={toasts} />
       {transmissions[0] && <TransmissionModal beat={transmissions[0]} onClose={() => setTransmissions((q) => q.slice(1))} />}
+      {milestone && <MilestoneModal stats={milestone} ground={world.environment.primaryColor} onClose={() => setMilestone(null)} />}
       {dialogue && <DialogueModal name={dialogue.name} lines={dialogue.lines} onClose={() => setDialogue(null)} />}
     </div>
   );

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { forkWorld } from "../community/continuity";
 import { exportWorldCode, importWorldCode } from "../game/share";
 import { useLumen } from "../state/store";
+import { Leaderboard } from "../components/Leaderboard";
 import { Icon } from "../components/icons";
 import type { Difficulty, World } from "../types";
 import demo from "../data/demo-world.json";
@@ -181,6 +182,10 @@ export default function Explore() {
         })}
       </div>
       {feed.length === 0 && <p className="muted" style={{ marginTop: 12 }}>No tales match — loosen the search, or <Link to="/create">file a new expedition</Link>.</p>}
+
+      <div style={{ marginTop: 16 }}>
+        <Leaderboard worldId={(world ?? demoWorld).id} worldName={(world ?? demoWorld).name} />
+      </div>
     </div>
   );
 }

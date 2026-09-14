@@ -1,8 +1,10 @@
 // Simple email login UI (skills.md G10): dossier-styled sign-in modal.
-// No password, no backend — 6-digit demo code, session in localStorage.
+// No password — 6-digit code. Uses the MYTHRA API when connected,
+// otherwise fully local. Either way the session namespaces saves.
 import { useState } from "react";
 import { clearSession, isValidEmail, loadSession, normalizeEmail, requestLoginCode, verifyLoginCode } from "../auth/auth";
 import type { AuthSession } from "../auth/auth";
+import { api, apiOn, setApiToken } from "../api/client";
 import { useLumen } from "../state/store";
 import { Icon } from "./icons";
 
@@ -20,7 +22,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const send = () => {
+  const send = async () => {
     setErr("");
     if (!isValidEmail(email)) {
       setErr("Enter a valid email address.");
@@ -28,10 +30,18 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
     }
     setBusy(true);
     try {
-      const c = requestLoginCode(email);
-      setSentTo(normalizeEmail(email));
-      setDemoCode(c); // demo: no mail server, show the code
-      pushLog(`Sign-in code sent to ${normalizeEmail(email)}.`);
+      if (apiOn()) {
+        const r = await api.requestCode(normalizeEmail(email));
+        if (!r) throw new Error("API unreachable — playing local. Code issued locally instead.");
+        setSentTo(r.email);
+        setDemoCode(r.code);
+        pushLog(`Sign-in code sent to ${r.email} (via MYTHRA API).`);
+      } else {
+        const c = requestLoginCode(email);
+        setSentTo(normalizeEmail(email));
+        setDemoCode(c); // demo: no mail server, show the code
+        pushLog(`Sign-in code sent to ${normalizeEmail(email)}.`);
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not send code.");
     } finally {
@@ -39,7 +49,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const confirm = () => {
+  const confirm = async () => {
     setErr("");
     if (!sentTo) {
       setErr("Send a code first.");
@@ -50,8 +60,17 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
       return;
     }
     try {
-      const s = verifyLoginCode(sentTo, code);
-      pushLog(`Signed in as ${s.email}. Saves + checkpoints are now yours.`);
+      if (apiOn()) {
+        const r = await api.verifyCode(sentTo, code.trim());
+        if (!r) throw new Error("API unreachable — verify locally instead.");
+        setApiToken(r.token);
+        const { saveSession } = await import("../auth/auth");
+        saveSession({ email: r.email, verifiedAt: new Date().toISOString() });
+        pushLog(`Signed in as ${r.email} (online). Saves + checkpoints are now yours.`);
+      } else {
+        const s = verifyLoginCode(sentTo, code);
+        pushLog(`Signed in as ${s.email}. Saves + checkpoints are now yours.`);
+      }
       loadCheckpoints();
       onClose();
     } catch (e) {
@@ -117,6 +136,7 @@ export function AuthButton({ onSignIn }: { onSignIn: () => void }) {
   }
   const logout = () => {
     clearSession();
+    setApiToken(null);
     setSession(null);
     pushLog("Signed out — filing as guest.");
     loadCheckpoints();
