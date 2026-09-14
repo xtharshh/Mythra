@@ -6,8 +6,8 @@ import type { CSSProperties } from "react";
 export type IconName =
   | "search" | "puzzle" | "wrench" | "rocket" | "note" | "mic" | "speaker"
   | "play" | "save" | "fly" | "pin" | "book" | "check" | "plus" | "arrow"
-  | "planet" | "signal" | "close" | "spark" | "voice" | "log" | "fork"
-  | "warn" | "idea" | "stop";
+  | "planet" | "signal" | "close" | "spark" | "voice"   | "log" | "fork"
+  | "warn" | "idea" | "stop" | "coffee";
 
 const PATHS: Record<IconName, string> = {
   search: "M11 4a7 7 0 1 0 4.9 12L21 21l-1.4 1.4-5.1-5.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z",
@@ -35,6 +35,7 @@ const PATHS: Record<IconName, string> = {
   warn: "M12 2 23 22H1L12 2Zm0 4.5L4.5 19h15L12 6.5ZM11 10v5h2v-5h-2Zm0 6v2h2v-2h-2Z",
   idea: "M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2ZM9 20h6v2H9v-2Z",
   stop: "M5 5h14v14H5V5Z",
+  coffee: "M5 8h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8Zm12 1h1.5a2.5 2.5 0 0 1 0 5H17v-5ZM7 2h7v2H7V2Z",
 };
 
 export function Icon({ name, size = 16, style }: { name: IconName; size?: number; style?: CSSProperties }) {

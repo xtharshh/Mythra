@@ -1,7 +1,7 @@
 // HUD: mission tracker, clue journal, inventory, puzzle modal, notifications (§16.1 play screen)
 import { useState } from "react";
 import type { Puzzle, World } from "../types";
-import { checkPuzzleAnswer } from "../game/engines";
+import { checkPuzzleAnswer, objectiveProgress } from "../game/engines";
 import { discoverVerb } from "../game/credits";
 import { useLumen } from "../state/store";
 import { DictateButton, VoiceNotes } from "./VoiceNotes";
@@ -22,7 +22,17 @@ export function MissionTracker({ world }: { world: World }) {
           <div key={m.id} style={{ marginTop: 8, fontSize: 13 }}>
             <span className={`pill ${done ? "green" : active ? "cyan" : ""}`}>{done ? "done" : active ? "active" : m.optional ? "optional" : "locked?"}</span>{" "}
             <b>{m.title}</b>
-            <div className="muted">{m.objectives.map((o) => o.description).join(" · ")}</div>
+            <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+              {m.objectives.map((o) => {
+                const p = objectiveProgress(o, gs);
+                return (
+                  <div key={o.id} className="muted">
+                    {p.done ? "✓" : "○"} {o.description}{" "}
+                    <b style={{ color: p.done ? "var(--green)" : "var(--th-accent)" }}>{p.have}/{p.need}</b>
+                  </div>
+                );
+              })}
+            </div>
             {!done && !active && <StartMissionButton id={m.id} />}
             <VoiceNotes worldId={world.id} targetKind="mission" targetId={m.id} label={m.title} compact />
           </div>
@@ -83,6 +93,22 @@ export function Inventory({ world }: { world: World }) {
       <b>Inventory</b>
       {Object.keys(inv).length === 0 && <div className="muted" style={{ fontSize: 13 }}>Empty — collect scrap and salvage.</div>}
       {Object.entries(inv).map(([k, v]) => <div key={k} style={{ fontSize: 13 }}>{names.get(k) ?? k} × {v}</div>)}
+    </div>
+  );
+}
+
+/** Always-visible collected counts — answers "where is my stuff?" at a glance. */
+export function InventoryStrip({ world }: { world: World }) {
+  const inv = useLumen((s) => s.inventory);
+  const names = new Map(world.resources.map((r) => [r.id, r.name]));
+  const entries = Object.entries(inv).filter(([, v]) => v > 0);
+  return (
+    <div className="row" style={{ padding: "4px 14px", borderBottom: "1px solid var(--border)", fontSize: 12, gap: 8 }} title="Everything you have collected">
+      <span className="dossier-meta">Pack:</span>
+      {entries.length === 0 && <span className="muted">empty — walk to scrap, aim, press E</span>}
+      {entries.map(([k, v]) => (
+        <span key={k} className="pill cyan">{names.get(k) ?? k} × {v}</span>
+      ))}
     </div>
   );
 }

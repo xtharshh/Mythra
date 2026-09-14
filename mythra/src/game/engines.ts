@@ -142,6 +142,50 @@ export function isMissionComplete(world: World, missionId: string, state: GameSt
   return evaluateCondition(m.completionCondition, state);
 }
 
+export interface ObjectiveProgress {
+  have: number;
+  need: number;
+  done: boolean;
+}
+
+/** Live have/need for one mission objective — powers the tracker's progress. Pure. */
+export function objectiveProgress(
+  o: { type: string; targetId?: string; quantity?: number },
+  state: GameState,
+): ObjectiveProgress {
+  const need = Math.max(1, o.quantity ?? 1);
+  const has = (set: Set<string>, id?: string): ObjectiveProgress => {
+    const done = !!id && set.has(id);
+    return { have: done ? need : 0, need, done };
+  };
+  switch (o.type) {
+    case "collect_item": {
+      const have = o.targetId ? (state.inventory[o.targetId] ?? 0) : 0;
+      return { have: Math.min(have, need), need, done: have >= need };
+    }
+    case "inspect_object":
+      return has(state.inspectedObjects, o.targetId);
+    case "reach_location":
+      return has(state.reachedLocations, o.targetId);
+    case "solve_puzzle":
+      return has(state.solvedPuzzles, o.targetId);
+    case "discover_clue":
+      return has(state.discoveredClues, o.targetId);
+    case "talk_to_npc":
+      return has(state.inspectedObjects, o.targetId);
+    case "activate_machine":
+    case "repair_object":
+    case "build_structure":
+      return has(state.inspectedObjects, o.targetId);
+    case "deliver_item": {
+      const have = o.targetId ? (state.inventory[o.targetId] ?? 0) : 0;
+      return { have: Math.min(have, need), need, done: have >= need };
+    }
+    default:
+      return { have: 0, need, done: false };
+  }
+}
+
 export function canDiscoverClue(world: World, clueId: string, state: GameState): boolean {
   const clue = world.clues.find((c) => c.id === clueId);
   if (!clue || state.discoveredClues.has(clueId)) return false;

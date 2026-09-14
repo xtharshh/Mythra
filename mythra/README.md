@@ -6,6 +6,7 @@
 ![3D](https://img.shields.io/badge/3D-Three.js_0.186-c1553b?style=flat-square)
 ![API](https://img.shields.io/badge/API-Fastify_%3A4000-8b5cf6?style=flat-square)
 ![License](https://img.shields.io/badge/license-proprietary-red?style=flat-square)
+[![Coffee](https://img.shields.io/badge/buy_me_a_coffee-xtharshh-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/xtharshh)
 
 Browser 3D mystery game engine: any genre, any story in — interactive realistic 3D world out.
 

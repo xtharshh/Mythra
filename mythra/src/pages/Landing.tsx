@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import demo from "../data/demo-world.json";
 import type { World } from "../types";
 import { themeForWorld } from "../theme/theme";
+import { SupportButton } from "../components/Support";
 
 const world = demo as unknown as World;
 
@@ -24,6 +25,7 @@ export default function Landing() {
             <Link className="btn btn-big" to="/play">▼ Begin descent</Link>
             <Link className="btn-ghost" to="/create">Expedition planner</Link>
             <Link className="btn-ghost" to="/explore">Mission archive</Link>
+            <SupportButton />
           </div>
           <div className="dossier-meta" style={{ marginTop: 14 }}>
             CASE {world.slug} · {world.missions.length} missions · {world.clues.length} clues · {world.puzzles.length} puzzles · hidden lab · est. {world.missions.reduce((s, m) => s + m.estimatedMinutes, 0)} min

@@ -8,7 +8,7 @@ import { useLumen } from "../state/store";
 import { ChaptersPanel, ContributeModal } from "../components/Community";
 import { DialogueModal, LAB_BEAT, MISSION_BEATS, StoryIntro, Toasts, TransmissionModal } from "../components/Story";
 import type { Beat, Toast } from "../components/Story";
-import { EventLog, Inventory, Journal, MissionTracker, PuzzleModal } from "../components/Hud";
+import { EventLog, Inventory, InventoryStrip, Journal, MissionTracker, PuzzleModal } from "../components/Hud";
 import { CheckpointPanel } from "../components/Checkpoints";
 import { WorldMap } from "../components/WorldMap";
 import { VoiceLibrary, VoiceNotes } from "../components/VoiceNotes";
@@ -392,8 +392,7 @@ export default function Play() {
           {flyMode ? "Flying" : "Fly"}
         </button>
         <div style={{ position: "relative" }}>
-          <button className="btn-ghost" title="Save, checkpoints, controls, audio" onClick={() => setMenuOpen((v) => !v)}>Menu</button>
-          {menuOpen && (
+          <button className="btn-ghost" title="Save, checkpoints, controls, audio" onClick={() => setMenuOpen((v) => !v)}>Menu</button>          {menuOpen && (
             <div className="hud-panel" style={{ position: "absolute", right: 0, top: 44, zIndex: 20, minWidth: 190, display: "flex", flexDirection: "column", gap: 6 }}>
               <button className="btn-ghost" onClick={() => { s.save(); setMenuOpen(false); }}>Save run</button>
               <button className="btn-ghost" onClick={() => { s.load(); setMenuOpen(false); }}>Load run</button>
@@ -407,6 +406,7 @@ export default function Play() {
           )}
         </div>
       </div>
+      <InventoryStrip world={world} />
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
           <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} />

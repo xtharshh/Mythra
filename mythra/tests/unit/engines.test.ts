@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import demo from "../../src/data/demo-world.json";
-import { checkPuzzleAnswer, emptyGameState, isMissionComplete, validateWorld } from "../../src/game/engines";
+import { checkPuzzleAnswer, emptyGameState, isMissionComplete, objectiveProgress, validateWorld } from "../../src/game/engines";
 import type { World } from "../../src/types";
 
 const world = structuredClone(demo) as unknown as World;
@@ -54,5 +54,24 @@ describe("puzzles", () => {
     expect(checkPuzzleAnswer("4213", "4213", "hash:4213")).toBe(true);
     expect(checkPuzzleAnswer("orion", "ORION", "hash:orion")).toBe(true);
     expect(checkPuzzleAnswer("0000", "4213", "hash:4213")).toBe(false);
+  });
+});
+
+describe("objectiveProgress (visible economy)", () => {
+  it("counts inventory for collect_item", () => {
+    const s = emptyGameState();
+    s.inventory = { metal: 2 };
+    expect(objectiveProgress({ type: "collect_item", targetId: "metal", quantity: 4 }, s)).toEqual({ have: 2, need: 4, done: false });
+    s.inventory = { metal: 9 };
+    expect(objectiveProgress({ type: "collect_item", targetId: "metal", quantity: 4 }, s)).toEqual({ have: 4, need: 4, done: true });
+  });
+
+  it("tracks inspect/reach/solve/discover as 0/1 or 1/1", () => {
+    const s = emptyGameState();
+    expect(objectiveProgress({ type: "inspect_object", targetId: "o1" }, s).done).toBe(false);
+    s.inspectedObjects.add("o1");
+    expect(objectiveProgress({ type: "inspect_object", targetId: "o1" }, s)).toEqual({ have: 1, need: 1, done: true });
+    expect(objectiveProgress({ type: "reach_location", targetId: "l1" }, s).done).toBe(false);
+    expect(objectiveProgress({ type: "bogus_kind" }, s)).toEqual({ have: 0, need: 1, done: false });
   });
 });

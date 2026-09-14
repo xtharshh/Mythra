@@ -6,6 +6,7 @@ import Landing from "./pages/Landing";
 import Play from "./pages/Play";
 import Studio from "./pages/Studio";
 import { AuthButton, LoginModal } from "./components/Login";
+import { SupportButton } from "./components/Support";
 import { useLumen } from "./state/store";
 import { applyTheme, themeForWorld } from "./theme/theme";
 import demo from "./data/demo-world.json";
@@ -35,6 +36,7 @@ export default function App() {
         <Link to="/create">Planner</Link>
         <Link to="/studio">Control</Link>
         <AuthButton onSignIn={() => setLoginOpen(true)} />
+        <SupportButton compact />
         <span className="station-sol"><span className="blink" />{theme.sol} · {theme.tagline}</span>
       </nav>
       <div className="ticker" aria-hidden>

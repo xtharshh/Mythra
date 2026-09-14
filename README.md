@@ -5,6 +5,7 @@
 ![Mars](https://img.shields.io/badge/genre-any_(mars_%E2%80%A2_ocean_%E2%80%A2_forest_%E2%80%A2_fantasy)-c1553b?style=for-the-badge)
 ![Engine](https://img.shields.io/badge/engine-React_%2B_Three.js_%2B_Fastify-8b5cf6?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-proprietary_(all_rights_reserved)-red?style=for-the-badge)
+[![Coffee](https://img.shields.io/badge/buy_me_a_coffee-xtharshh-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/xtharshh)
 
 > **MYTHRA** is a proprietary 3D mystery-game engine by **HARSH KUMAR**.
 > Type a story brief — walk it as a living world: realistic hardware, correct
@@ -69,6 +70,10 @@ in-game **Control deck** (strict browser keys can never be captured).
 </details>
 
 ---
+
+### ☕ Support MYTHRA
+
+Fuel the next expedition: **[buymeacoffee.com/xtharshh](https://buymeacoffee.com/xtharshh)** — every coffee keeps the suits charged.
 
 ### ⚖️ License — proprietary, all rights reserved
 
