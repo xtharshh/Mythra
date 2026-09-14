@@ -4,3 +4,9 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Local-only spec docs — stay on this machine, never committed, never in history
+skills.md
+implementations.md
+LUMEN_Full_Game_Documentation.md
+architecture.md
