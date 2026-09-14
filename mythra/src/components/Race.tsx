@@ -1,7 +1,8 @@
 // RacePanel — who is solving faster, live. Invite link in, ranked wall out.
 // Needs the API for shared rooms; offline it still explains the solo path.
 import { useEffect, useState } from "react";
-import { api, apiOn } from "../api/client";
+import { api, apiOn, apiToken, formatPing, pingApi } from "../api/client";
+import { loadSession } from "../auth/auth";
 import { rankRacers } from "../game/invite";
 import type { Racer } from "../game/invite";
 import { Icon } from "./icons";
@@ -15,6 +16,27 @@ export function RacePanel({ worldId, worldName, roomId, inviteLink, onInvite }: 
 }) {
   const [board, setBoard] = useState<Racer[]>([]);
   const [copied, setCopied] = useState(false);
+  const [ping, setPing] = useState<number | null>(null);
+  const connected = apiOn();
+  const session = (() => {
+    try {
+      return loadSession();
+    } catch {
+      return null;
+    }
+  })();
+  const authed = connected && !!apiToken();
+
+  useEffect(() => {
+    if (!connected) return;
+    let alive = true;
+    void pingApi().then((ms) => {
+      if (alive) setPing(ms);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [connected]);
 
   useEffect(() => {
     if (!apiOn() || !roomId) {
@@ -49,12 +71,18 @@ export function RacePanel({ worldId, worldName, roomId, inviteLink, onInvite }: 
   return (
     <div className="hud-panel">
       <div className="row"><b><Icon name="spark" size={14} /> Race</b><span className="pill cyan">{worldName}</span></div>
+      <div className="dossier-meta" style={{ marginTop: 4 }}>
+        API: {connected ? (ping === null ? "connecting…" : `connected (${formatPing(ping, true)})`) : "local-only"} ·
+        {session ? ` signed in as ${session.email.split("@")[0]}${authed ? "" : " (relink needed ↓)"}` : " guest"}
+      </div>
       {!roomId ? (
         <div style={{ marginTop: 6 }}>
           <div className="muted" style={{ fontSize: 13 }}>
-            {apiOn()
-              ? "Send a join link — solvers land in YOUR story, live on the speed board, visible in your sky."
-              : "Sign in + connect the API for shared races. The link below still carries the tale itself."}
+            {!connected
+              ? "No API: set VITE_API_URL=http://localhost:4000 in mythra/.env, restart npm run dev. The link below still carries the tale itself."
+              : !authed
+                ? "API reachable, but this session has no API token — sign OUT and sign back IN once, then invite."
+                : "Send a join link — solvers land in YOUR story, live on the speed board, visible in your sky."}
           </div>
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn" onClick={onInvite}><Icon name="plus" size={12} /> Invite solvers</button>

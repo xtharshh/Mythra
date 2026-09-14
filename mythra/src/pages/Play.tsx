@@ -331,7 +331,12 @@ export default function Play() {
       return;
     }
     if (!apiToken()) {
-      useLumen.getState().pushLog("Sign in first (nav → Sign in) — race rooms need a username.");
+      const hasSession = !!loadSession();
+      useLumen.getState().pushLog(
+        hasSession
+          ? "This sign-in predates the API link — sign OUT and sign back IN once, then invite."
+          : "Sign in first (nav → Sign in) — race rooms need a username.",
+      );
       return;
     }
     const r = await api.createRoom(w.id);
