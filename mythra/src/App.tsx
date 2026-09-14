@@ -6,6 +6,7 @@ import Explore from "./pages/Explore";
 import Landing from "./pages/Landing";
 import Play from "./pages/Play";
 import Studio from "./pages/Studio";
+import { Privacy, Terms } from "./pages/Legal";
 import { AuthButton, EntryModal, LoginModal } from "./components/Login";
 import { Logo } from "./components/Logo";
 import { SupportButton } from "./components/Support";
@@ -138,8 +139,17 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
         <Route path="/play" element={<Play />} />
         <Route path="/create" element={<Create />} />
         <Route path="/studio" element={<Studio />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
       </Routes>
       </RouteBoundary>
+      <footer style={{ borderTop: "1px solid var(--border)", padding: "14px 22px", display: "flex", gap: 16, alignItems: "center", fontSize: 12 }} className="muted">
+        <span>© 2026 HARSH KUMAR · MYTHRA — all rights reserved</span>
+        <span style={{ flex: 1 }} />
+        <Link to="/terms">Terms</Link>
+        <Link to="/privacy">Privacy</Link>
+        <a href="https://buymeacoffee.com/xtharshh" target="_blank" rel="noreferrer">Support</a>
+      </footer>
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
       {entryOpen && (
         <EntryModal
