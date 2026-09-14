@@ -38,7 +38,7 @@ export function Leaderboard({ worldId, worldName }: { worldId: string; worldName
 
   return (
     <div className="hud-panel">
-      <div className="row"><b><Icon name="spark" size={14} /> Leaderboard</b><span className="pill cyan">{worldName}</span></div>
+      <div className="row"><b><Icon name="spark" size={14} /> Top 10</b><span className="pill cyan">{worldName}</span></div>
       {!rows ? (
         <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>Reading the wall…</div>
       ) : rows.length === 0 ? (

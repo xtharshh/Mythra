@@ -10,6 +10,7 @@ import { DialogueModal, LAB_BEAT, MISSION_BEATS, StoryIntro, Toasts, Transmissio
 import type { Beat, Toast } from "../components/Story";
 import { EventLog, Inventory, InventoryStrip, Journal, MissionTracker, PuzzleModal } from "../components/Hud";
 import { CheckpointPanel } from "../components/Checkpoints";
+import { Leaderboard } from "../components/Leaderboard";
 import { ownerLabel } from "../game/credits";
 import { WorldMap } from "../components/WorldMap";
 import { VoiceLibrary, VoiceNotes } from "../components/VoiceNotes";
@@ -62,7 +63,7 @@ export default function Play() {
   const [showCharacter, setShowCharacter] = useState(false);
   const [character, setCharacter] = useState(() => loadCharacter());
   const playRootRef = useRef<HTMLDivElement>(null);
-  const [sideTab, setSideTab] = useState<"missions" | "map" | "journal" | "voice" | "system">("missions");
+  const [sideTab, setSideTab] = useState<"missions" | "map" | "journal" | "voice" | "board" | "system">("missions");
   const stopListenRef = useRef<(() => void) | null>(null);
   const shownBeats = useRef(new Set<string>());
   const toastId = useRef(0);
@@ -566,9 +567,9 @@ export default function Play() {
             </div>
           )}
           <div className="row" style={{ gap: 6 }}>
-            {(["missions", "map", "journal", "voice", "system"] as const).map((t) => (
+            {(["missions", "map", "journal", "voice", "board", "system"] as const).map((t) => (
               <button key={t} className={sideTab === t ? "btn" : "btn-ghost"} style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setSideTab(t)}>
-                {t === "missions" ? `Missions ${s.completedMissions.length}/${world.missions.length}` : t === "map" ? "Map" : t === "journal" ? `Journal ${s.discoveredClues.length}/${world.clues.length}` : t === "voice" ? "Voice" : "System"}
+                {t === "missions" ? `Missions ${s.completedMissions.length}/${world.missions.length}` : t === "map" ? "Map" : t === "journal" ? `Journal ${s.discoveredClues.length}/${world.clues.length}` : t === "voice" ? "Voice" : t === "board" ? "Board" : "System"}
               </button>
             ))}
           </div>
@@ -576,6 +577,29 @@ export default function Play() {
           {sideTab === "map" && <WorldMap world={world} playerPos={s.playerPos} reached={s.reachedLocations} />}
           {sideTab === "journal" && (<><Journal world={world} /><ChaptersPanel world={world} /></>)}
           {sideTab === "voice" && <VoiceLibrary worldId={world.id} />}
+          {sideTab === "board" && (<>
+            <Leaderboard worldId={world.id} worldName={world.name} />
+            <div className="hud-panel">
+              <div className="row"><b>Live in this story</b><span className="pill cyan">{peers.length + 1}</span></div>
+              <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+                <div className="row" style={{ gap: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: `#${character.suit.toString(16).padStart(6, "0")}`, display: "inline-block" }} />
+                  <b>You · {character.label}</b>
+                  <span className="pill green">solving now</span>
+                </div>
+                {peers.length === 0 && (
+                  <div className="muted">Alone here — send an Invite and racers appear live with their suits.</div>
+                )}
+                {peers.map((p) => (
+                  <div key={p.user} className="row" style={{ gap: 8 }}>
+                    <span style={{ width: 12, height: 12, borderRadius: "50%", background: `#${p.suit.toString(16).padStart(6, "0")}`, display: "inline-block" }} />
+                    <b>{p.user}</b>
+                    <span className="pill green">live</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>)}
           {sideTab === "system" && (<><RacePanel worldId={world.id} worldName={world.name} roomId={roomId} inviteLink={inviteLink} onInvite={() => void invite()} /><CheckpointPanel worldId={world.id} /><EventLog /></>)}
         </div>
       </div>
