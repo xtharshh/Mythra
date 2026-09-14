@@ -220,9 +220,10 @@ export function AuthButton({ onSignIn }: { onSignIn: () => void }) {
       window.removeEventListener("storage", refresh);
     };
   }, []);
+  // logged out → no button here (the Online flow already signs explorers in)
   if (!session) {
     return (
-      <button className="btn-ghost" title="Sign in with email — saves file under you" onClick={onSignIn}>
+      <button className="btn-ghost" title="Sign in with email — saves file under you" onClick={onSignIn} style={{ display: "none" }}>
         {t("nav.signin", lang)}
       </button>
     );
