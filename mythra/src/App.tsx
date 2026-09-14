@@ -95,10 +95,6 @@ export default function App() {  const loadLibrary = useLumen((s) => s.loadLibra
           <span className="blink" />{theme.sol} · {theme.tagline} · ping {formatPing(ping, connected)}
         </span>
       </nav>
-      <div className="ticker" aria-hidden>
-        <span>Welcome to MYTHRA</span>
-        {theme.ticker.map((t) => <span key={t}>{t}</span>)}
-      </div>
       <RouteBoundary>
       <Routes>
         <Route path="/" element={<Landing />} />

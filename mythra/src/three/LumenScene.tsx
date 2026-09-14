@@ -39,7 +39,6 @@ export interface PeerPresence {
 interface Props {
   world: World;
   flyMode: boolean;
-  hasSuit: boolean;
   onInteractRequest: (obj: WorldObject) => void;
   onReachLocation: (locationId: string) => void;
   onPositionChange: (pos: [number, number, number]) => void;
@@ -131,7 +130,7 @@ function makeNameTag(name: string): THREE.Mesh {
   return m;
 }
 
-export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character, view, onToggleViewRequest, home }: Props) {
+export default function LumenScene({ world, flyMode, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character, view, onToggleViewRequest, home }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({
     keys: new Set<string>(),
@@ -156,8 +155,8 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
   viewRef.current = view;
   const callbacks = useRef({ onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, onToggleViewRequest });
   callbacks.current = { onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, onToggleViewRequest };
-  const flags = useRef({ flyMode, hasSuit });
-  flags.current = { flyMode, hasSuit };
+  const flags = useRef({ flyMode });
+  flags.current = { flyMode };
   const worldRef = useRef(world);
   worldRef.current = world;
 
@@ -457,7 +456,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       if (el?.tagName === "BUTTON") el.blur();
       st.keys.add(e.code);
       const B = bindsRef.current;
-      const flyingNow = flags.current.flyMode && flags.current.hasSuit;
+      const flyingNow = flags.current.flyMode;
       if (isDown("flyToggle", st.keys, B) && !e.repeat) callbacks.current.onToggleFlyRequest();
       if (e.code === "KeyV" && !e.repeat) callbacks.current.onToggleViewRequest();
       const interactKey = isDown("interact", st.keys, B) || e.key === "e" || e.key === "E";
@@ -512,7 +511,8 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       const dt = Math.min(clock.getDelta(), 0.05);
       const t = clock.getElapsed();
       const B = bindsRef.current;
-      const flying = flags.current.flyMode && flags.current.hasSuit;
+      // flight is open to every explorer — no suit gate
+      const flying = flags.current.flyMode;
       const sprinting = isDown("sprint", st.keys, B);
       const speed = flying ? (sprinting && worldRef.current.settings.sprintEnabled ? 14 : 8) : (sprinting && worldRef.current.settings.sprintEnabled ? 9 : 4.5);
       const fwd = new THREE.Vector3(-Math.sin(st.yaw), 0, -Math.cos(st.yaw));
@@ -783,7 +783,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       }
 
       if (flightRef.current) {
-        flightRef.current.style.display = flags.current.hasSuit ? "block" : "none";
+        flightRef.current.style.display = flying ? "block" : "none";
         if (altRef.current) altRef.current.textContent = flying ? `${st.pos.y.toFixed(0)}m · FLYING` : st.pos.y > GROUND_Y + 0.2 ? `${st.pos.y.toFixed(0)}m · descending` : "grounded";
       }
 

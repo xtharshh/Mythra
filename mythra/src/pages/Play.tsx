@@ -58,8 +58,6 @@ export default function Play() {
   const [sound, setSound] = useState(() => sfxOn());
   const [ambience, setAmbience] = useState(() => loadAmbience());
   const [menuOpen, setMenuOpen] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(true);
-  const [view, setView] = useState<ViewMode>(() => loadView());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCharacter, setShowCharacter] = useState(false);
   const [character, setCharacter] = useState(() => loadCharacter());
@@ -68,7 +66,7 @@ export default function Play() {
   const stopListenRef = useRef<(() => void) | null>(null);
   const shownBeats = useRef(new Set<string>());
   const toastId = useRef(0);
-  const hasSuit = (s.inventory["suit"] ?? 0) > 0;
+  const [view, setView] = useState<ViewMode>(() => loadView());
 
   // cinematic intro, once per story
   useEffect(() => {
@@ -157,12 +155,8 @@ export default function Play() {
   };
 
   const toggleFly = () => {
-    if (!hasSuit) {
-      s.pushLog("🛰️ You need the flight suit — check the Rover Garage locker.");
-      return;
-    }
     setFlyMode((f) => {
-      s.pushLog(f ? "Suit thrusters off." : "🛰️ Suit online — Space up, C down, Shift boost.");
+      s.pushLog(f ? "Suit thrusters off." : "Suit online — Space up, C down, Shift boost. The sky is open.");
       return !f;
     });
   };
@@ -514,7 +508,7 @@ export default function Play() {
         >
           {listening ? "Listening…" : "Mic"}
         </button>
-        <button className={flyMode ? "btn" : "btn-ghost"} title={hasSuit ? "Toggle flight (F)" : "Find the flight suit first"} onClick={toggleFly}>
+        <button className={flyMode ? "btn" : "btn-ghost"} title="Toggle flight (F) — Space up, C down" onClick={toggleFly}>
           {flyMode ? "Flying" : "Fly"}
         </button>
         <button className="btn-ghost" title="Play in fullscreen (Esc exits)" onClick={() => void toggleFullscreen()}>
@@ -522,9 +516,6 @@ export default function Play() {
         </button>
         <button className="btn-ghost" title="Switch first / third person camera (V)" onClick={toggleView}>
           {view === "third" ? "3rd person" : "1st person"}
-        </button>
-        <button className="btn-ghost" title="Show or hide the side panel" onClick={() => setPanelOpen((v) => !v)}>
-          {panelOpen ? "Hide panel" : "Show panel"}
         </button>
         <div style={{ position: "relative" }}>
           <button className="btn-ghost" title="Save, checkpoints, controls, audio" onClick={() => setMenuOpen((v) => !v)}>Menu</button>
@@ -552,9 +543,9 @@ export default function Play() {
         </div>
       </div>
       <InventoryStrip world={world} />
-      <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12, gridTemplateColumns: panelOpen ? undefined : "1fr" }}>
+      <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
+          <LumenScene world={world} flyMode={flyMode} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
           {target && (
             <button
               className="btn"
@@ -566,7 +557,7 @@ export default function Play() {
             </button>
           )}
         </div>
-        <div style={{ display: panelOpen ? "flex" : "none", flexDirection: "column", gap: 10, overflow: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "auto" }}>
           {target && (
             <div className="hud-panel">
               <div className="row"><b>At crosshair</b><span className="pill cyan">{target.name}</span></div>

@@ -87,16 +87,6 @@ button, input, select, textarea { font: inherit; }
 }
 .station-sol .blink { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: blink 1.2s steps(1) infinite; }
 
-/* ---- telemetry ticker ---- */
-.ticker {
-  display: flex; gap: 0; overflow: hidden; white-space: nowrap;
-  border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.55);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 11px; letter-spacing: 2px; color: var(--th-accent);
-}
-.ticker span { padding: 6px 18px; border-right: 1px solid var(--border); }
-
 /* ---- layout / dossier cards ---- */
 .layout { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
