@@ -13,10 +13,12 @@ export interface Tables {
   worlds: Record<string, unknown>; // published worlds by id
   progress: Record<string, unknown>; // `${email}:${worldId}` -> snapshot
   board: Record<string, { user: string; worldId: string; missions: number; clues: number; updatedAt: string }[]>;
-  presence: Record<string, Record<string, { pos: [number, number, number]; suit: string; ts: number }>>;
+  presence: Record<string, Record<string, { pos: [number, number, number]; suit: string; room: string; ts: number }>>;
+  rooms: Record<string, { id: string; worldId: string; host: string; createdAt: string }>;
+  racers: Record<string, Record<string, { missions: number; clues: number; startedAt: string; updatedAt: string; finishedAt?: string }>>;
 }
 
-const FILES: (keyof Tables)[] = ["codes", "tokens", "worlds", "progress", "board", "presence"];
+const FILES: (keyof Tables)[] = ["codes", "tokens", "worlds", "progress", "board", "presence", "rooms", "racers"];
 const cache = new Map<string, unknown>();
 
 function path(name: string): string {

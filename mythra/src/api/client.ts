@@ -76,6 +76,8 @@ export interface BoardEntry {
   missions: number;
   clues: number;
   updatedAt: string;
+  startedAt?: string;
+  finishedAt?: string;
 }
 
 export interface PresencePeer {
@@ -96,7 +98,13 @@ export const api = {
     call<{ ok: boolean }>("/api/leaderboard", { method: "POST", body: { worldId, missions, clues }, auth: true }),
   board: (worldId?: string) =>
     call<BoardEntry[] | Record<string, BoardEntry[]>>(worldId ? `/api/leaderboard?worldId=${encodeURIComponent(worldId)}` : "/api/leaderboard"),
-  heartbeat: (worldId: string, pos: [number, number, number], suit: string) =>
-    call<{ ok: boolean }>("/api/presence", { method: "POST", body: { worldId, pos, suit }, auth: true }),
-  peers: (worldId: string) => call<PresencePeer[]>(`/api/presence?worldId=${encodeURIComponent(worldId)}`),
+  heartbeat: (worldId: string, pos: [number, number, number], suit: string, roomId?: string) =>
+    call<{ ok: boolean }>("/api/presence", { method: "POST", body: { worldId, pos, suit, roomId: roomId ?? "" }, auth: true }),
+  peers: (worldId: string, roomId?: string) =>
+    call<PresencePeer[]>(`/api/presence?worldId=${encodeURIComponent(worldId)}${roomId ? `&roomId=${encodeURIComponent(roomId)}` : ""}`),
+  createRoom: (worldId: string) => call<{ roomId: string }>("/api/rooms", { method: "POST", body: { worldId }, auth: true }),
+  raceRoom: (roomId: string) =>
+    call<{ room: { id: string; worldId: string; host: string; createdAt: string }; board: BoardEntry[] }>(`/api/rooms/${encodeURIComponent(roomId)}`),
+  raceProgress: (roomId: string, missions: number, clues: number, finished: boolean) =>
+    call<{ ok: boolean }>(`/api/rooms/${encodeURIComponent(roomId)}/progress`, { method: "POST", body: { missions, clues, finished }, auth: true }),
 };

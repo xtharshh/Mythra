@@ -17,6 +17,9 @@ import {
   isTtsSupported, isVoiceInputSupported, loadVoiceSettings, parseVoiceCommand,
   saveVoiceSettings, speak, startListening, stopSpeaking, warmVoices,
 } from "../audio/voice";
+import { buildInviteLink, parseInvite } from "../game/invite";
+import { importWorldCode } from "../game/share";
+import { RacePanel } from "../components/Race";
 import { triggerObject } from "../three/effects";
 import type { PeerPresence } from "../three/LumenScene";
 import { api, apiOn } from "../api/client";
@@ -48,6 +51,8 @@ export default function Play() {
   const [target, setTarget] = useState<WorldObject | null>(null);
   const [showControls, setShowControls] = useState(false);
   const [peers, setPeers] = useState<PeerPresence[]>([]);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [milestone, setMilestone] = useState<MilestoneStats | null>(null);
   const [showAudio, setShowAudio] = useState(false);
   const [sound, setSound] = useState(() => sfxOn());
@@ -162,8 +167,27 @@ export default function Play() {
     });
   };
 
-  // load demo world on first visit
+  // load demo world on first visit — or land straight into an invite link
   useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get("invite");
+      if (q) {
+        const inv = parseInvite(q);
+        const w = importWorldCode(inv.code);
+        s.setWorld(structuredClone(w));
+        s.addWorld(structuredClone(w));
+        if (inv.room) {
+          setRoomId(inv.room);
+          s.pushLog(`Joined the race — solve it faster than the host.`);
+        } else {
+          s.pushLog(`Imported tale: ${w.name}.`);
+        }
+        window.history.replaceState(null, "", window.location.pathname);
+        return;
+      }
+    } catch (e) {
+      useLumen.getState().pushLog(e instanceof Error ? e.message : "Invite failed.");
+    }
     if (!s.world) {
       s.setWorld(structuredClone(demo) as unknown as World);
       s.addWorld(structuredClone(demo) as unknown as World);
@@ -261,8 +285,8 @@ export default function Play() {
     let alive = true;
     const beat = async () => {
       const st = useLumen.getState();
-      await api.heartbeat(worldId, st.playerPos, encodeSuit(character.suit, character.accent));
-      const list = await api.peers(worldId);
+      await api.heartbeat(worldId, st.playerPos, encodeSuit(character.suit, character.accent), roomId ?? undefined);
+      const list = await api.peers(worldId, roomId ?? undefined);
       if (!alive || !list) return;
       const me = (loadSession()?.email ?? "").split("@")[0];
       setPeers(
@@ -280,16 +304,45 @@ export default function Play() {
       alive = false;
       window.clearInterval(id);
     };
-  }, [s.world?.id]);
+  }, [s.world?.id, roomId, character]);
 
   // leaderboard: personal best follows missions + clues (best-effort)
+  // race room: live speed board follows too (finished flips at 100%)
   useEffect(() => {
-    if (!apiOn() || !s.world?.id) return;
+    if (!s.world?.id) return;
+    const worldId = s.world.id;
+    const finished =
+      s.world.missions.length > 0 &&
+      s.world.missions.every((m) => s.completedMissions.includes(m.id)) &&
+      s.world.clues.every((c) => s.discoveredClues.includes(c.id));
     const t = window.setTimeout(() => {
-      void api.submitScore(s.world!.id, s.completedMissions.length, s.discoveredClues.length);
+      if (apiOn()) {
+        void api.submitScore(worldId, s.completedMissions.length, s.discoveredClues.length);
+        if (roomId) void api.raceProgress(roomId, s.completedMissions.length, s.discoveredClues.length, finished);
+      }
     }, 800);
     return () => window.clearTimeout(t);
-  }, [s.world?.id, s.completedMissions, s.discoveredClues]);
+  }, [s.world?.id, s.completedMissions, s.discoveredClues, roomId]);
+
+  const invite = async () => {
+    const w = useLumen.getState().world;
+    if (!w) return;
+    if (!apiOn()) {
+      // offline link still carries the whole tale — solo flight, same story
+      setRoomId(null);
+      setInviteLink(buildInviteLink("", w));
+      useLumen.getState().pushLog("Invite link carries the tale (offline) — connect the API for the live race.");
+      return;
+    }
+    const r = await api.createRoom(w.id);
+    if (!r) {
+      useLumen.getState().pushLog("Couldn't open a race room — API unreachable.");
+      return;
+    }
+    setRoomId(r.roomId);
+    setInviteLink(buildInviteLink(r.roomId, w));
+    useLumen.getState().pushLog("Race room open — send the link, fastest solver wins.");
+  };
 
   const world = s.world ?? (structuredClone(demo) as unknown as World);
   const puzzle = world.puzzles.find((p) => p.id === puzzleId) ?? null;
@@ -522,7 +575,7 @@ export default function Play() {
           {sideTab === "map" && <WorldMap world={world} playerPos={s.playerPos} reached={s.reachedLocations} />}
           {sideTab === "journal" && (<><Journal world={world} /><ChaptersPanel world={world} /></>)}
           {sideTab === "voice" && <VoiceLibrary worldId={world.id} />}
-          {sideTab === "system" && (<><CheckpointPanel worldId={world.id} /><EventLog /></>)}
+          {sideTab === "system" && (<><RacePanel worldId={world.id} worldName={world.name} roomId={roomId} inviteLink={inviteLink} onInvite={() => void invite()} /><CheckpointPanel worldId={world.id} /><EventLog /></>)}
         </div>
       </div>
       {puzzle && <PuzzleModal puzzle={puzzle} onClose={() => { setPuzzleId(null); setTimeout(checkMissions, 50); }} />}

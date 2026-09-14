@@ -145,11 +145,16 @@ const WINDOW_MS = 15 * 1000;
 app.post("/api/presence", async (req, reply) => {
   const email = emailOf(req);
   if (!email) return reply.code(401).send({ error: "Sign in first." });
-  const { worldId, pos, suit } = (req.body ?? {}) as { worldId?: unknown; pos?: unknown; suit?: unknown };
+  const { worldId, pos, suit, roomId } = (req.body ?? {}) as { worldId?: unknown; pos?: unknown; suit?: unknown; roomId?: unknown };
   if (typeof worldId !== "string" || !Array.isArray(pos)) return reply.code(400).send({ error: "worldId + pos required." });
   const presence = read("presence");
   const room = presence[worldId] ?? {};
-  room[email] = { pos: pos as [number, number, number], suit: typeof suit === "string" ? suit : "explorer", ts: Date.now() };
+  room[email] = {
+    pos: pos as [number, number, number],
+    suit: typeof suit === "string" ? suit : "explorer",
+    room: typeof roomId === "string" ? roomId : "",
+    ts: Date.now(),
+  };
   for (const [u, p] of Object.entries(room)) {
     if (Date.now() - (p as { ts: number }).ts > WINDOW_MS) delete room[u];
   }
@@ -159,13 +164,78 @@ app.post("/api/presence", async (req, reply) => {
 });
 
 app.get("/api/presence", async (req) => {
-  const { worldId } = (req.query ?? {}) as { worldId?: string };
+  const { worldId, roomId } = (req.query ?? {}) as { worldId?: string; roomId?: string };
   if (!worldId) return [];
   const room = read("presence")[worldId] ?? {};
   const now = Date.now();
   return Object.entries(room)
-    .filter(([, p]) => now - (p as { ts: number }).ts <= WINDOW_MS)
+    .filter(([, p]) => {
+      const peer = p as { ts: number; room: string };
+      if (now - peer.ts > WINDOW_MS) return false;
+      if (roomId && peer.room !== roomId) return false;
+      return true;
+    })
     .map(([email, p]) => ({ user: (email as string).split("@")[0], ...(p as object) }));
+});
+
+// --- race rooms: invite links, speed boards, shared solves ---
+interface RaceRow { user: string; missions: number; clues: number; startedAt: string; updatedAt: string; finishedAt?: string }
+
+const rank = (list: RaceRow[]): RaceRow[] =>
+  list.slice().sort((a, b) => {
+    if (b.missions !== a.missions) return b.missions - a.missions;
+    if (b.clues !== a.clues) return b.clues - a.clues;
+    if (!!a.finishedAt !== !!b.finishedAt) return a.finishedAt ? -1 : 1;
+    if (a.finishedAt && b.finishedAt && a.finishedAt !== b.finishedAt) return a.finishedAt < b.finishedAt ? -1 : 1;
+    return a.startedAt < b.startedAt ? -1 : 1;
+  });
+
+app.post("/api/rooms", async (req, reply) => {
+  const email = emailOf(req);
+  if (!email) return reply.code(401).send({ error: "Sign in first." });
+  const { worldId } = (req.body ?? {}) as { worldId?: unknown };
+  if (typeof worldId !== "string") return reply.code(400).send({ error: "worldId required." });
+  const id = randomBytes(3).toString("hex");
+  const rooms = read("rooms");
+  rooms[id] = { id, worldId, host: email.split("@")[0], createdAt: new Date().toISOString() };
+  write("rooms", rooms);
+  const racers = read("racers");
+  racers[id] = {};
+  write("racers", racers);
+  return { roomId: id };
+});
+
+app.get("/api/rooms/:id", async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const room = read("rooms")[id];
+  if (!room) return reply.code(404).send({ error: "Unknown race room." });
+  const racers = read("racers")[id] ?? {};
+  const board = rank(Object.entries(racers).map(([user, r]) => ({ user, ...(r as Omit<RaceRow, "user">) })));
+  return { room, board };
+});
+
+app.post("/api/rooms/:id/progress", async (req, reply) => {
+  const email = emailOf(req);
+  if (!email) return reply.code(401).send({ error: "Sign in first." });
+  const { id } = req.params as { id: string };
+  const rooms = read("rooms");
+  if (!rooms[id]) return reply.code(404).send({ error: "Unknown race room." });
+  const { missions, clues, finished } = (req.body ?? {}) as { missions?: unknown; clues?: unknown; finished?: unknown };
+  const racers = read("racers");
+  const room = racers[id] ?? {};
+  const user = email.split("@")[0];
+  const prev = room[user] as { startedAt?: string } | undefined;
+  const now = new Date().toISOString();
+  room[user] = {
+    missions: typeof missions === "number" ? missions : 0,
+    clues: typeof clues === "number" ? clues : 0,
+    startedAt: prev?.startedAt ?? now,
+    updatedAt: now,
+    ...(finished === true ? { finishedAt: now } : {}),
+  };
+  racers[id] = room;
+  write("racers", racers);
+  return { ok: true };
 });
 
 const port = Number(process.env.PORT ?? 4000);
