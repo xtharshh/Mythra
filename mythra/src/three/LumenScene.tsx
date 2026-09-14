@@ -446,14 +446,17 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     };
     window.addEventListener(BINDS_EVENT, onReloadBinds);
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space") e.preventDefault();
-      // don't hijack typing in inputs / modals
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
-        if (e.code !== "Escape") return;
-      }
-      // Space must never re-trigger a focused button instead of the game
+      // don't hijack typing anywhere (journal, planner, login, contribute…)
       const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      const typing =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        (el?.isContentEditable ?? false);
+      if (typing && e.code !== "Escape") return;
+      if (e.code === "Space") e.preventDefault();
+      // Space must never re-trigger a focused button instead of the game
       if (el?.tagName === "BUTTON") el.blur();
       st.keys.add(e.code);
       const B = bindsRef.current;
@@ -841,7 +844,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative", cursor: "crosshair" }}>
       <div className="reticle" />
       <div ref={promptRef} className="target-hud" style={{ display: "none" }} />
-      <div ref={flightRef} className="suit-chip" style={{ display: "none" }}>
+      <div ref={flightRef} className="suit-chip" style={{ display: "none", top: 52 }}>
         SUIT <span ref={altRef} style={{ color: "var(--th-accent)", fontWeight: 700 }}>grounded</span>
       </div>
       <div ref={hintRef} className="controls-hint" dangerouslySetInnerHTML={{ __html: hintHTML(loadBinds()) }} />

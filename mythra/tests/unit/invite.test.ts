@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import demo from "../../src/data/demo-world.json";
-import { buildInviteLink, parseInvite, rankRacers } from "../../src/game/invite";
+import { buildInviteLink, buildShortInviteLink, parseInvite, parseRoomId, rankRacers } from "../../src/game/invite";
 import { exportWorldCode } from "../../src/game/share";
 import type { World } from "../../src/types";
 
@@ -18,6 +18,16 @@ describe("party invites", () => {
   it("rejects garbage links readably", () => {
     expect(() => parseInvite("%%%")).toThrow(/resend/i);
     expect(() => parseInvite(btoa("{\"v\":2}"))).toThrow(/MYTHRA party/i);
+  });
+
+  it("short links stay pocket-sized and validate room ids", () => {
+    const link = buildShortInviteLink("705295");
+    expect(link).toMatch(/\/play\?room=705295$/);
+    expect(link.length).toBeLessThan(100);
+    expect(parseRoomId("705295")).toBe("705295");
+    expect(parseRoomId("  A1B2C3 ")).toBe("a1b2c3");
+    expect(() => parseRoomId("nope")).toThrow(/resend/i);
+    expect(() => parseRoomId("")).toThrow(/resend/i);
   });
 });
 

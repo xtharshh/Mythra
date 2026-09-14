@@ -78,7 +78,7 @@ export function Journal({ world }: { world: World }) {
             <b>{c.title}</b> <span className="pill">{c.type}</span>
             <div>{c.text}</div>
             <div className="row" style={{ marginTop: 4 }}>
-              <input placeholder="Your note…" value={notes[c.id] ?? ""} onChange={(e) => setNote(c.id, e.target.value)} style={{ flex: 1 }} />
+              <input placeholder="Your note… (autosaves)" value={notes[c.id] ?? ""} onChange={(e) => setNote(c.id, e.target.value)} style={{ flex: 1 }} />
               <DictateButton onText={(t) => setNote(c.id, `${notes[c.id] ?? ""} ${t}`.trim())} />
             </div>
             <VoiceNotes worldId={world.id} targetKind="clue" targetId={c.id} label={c.title} compact />

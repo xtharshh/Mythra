@@ -4,10 +4,16 @@
 // sessions live in localStorage; all validators are pure and unit-tested.
 
 export interface AuthSession {
-  /** verified email — or Discord username for OAuth sign-ins */
+  /** verified email — or Discord display name for OAuth sign-ins */
   email: string;
   verifiedAt: string;
   avatar?: string;
+  /** Discord profile (present only for Sign in with Discord) */
+  discordId?: string;
+  /** Discord unique handle, e.g. "ivan" */
+  discordUsername?: string;
+  /** Discord display/global name, e.g. "Ivan R" */
+  displayName?: string;
 }
 
 interface PendingCode {
@@ -37,11 +43,22 @@ export function loadSession(): AuthSession | null {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as AuthSession;
-    // sessions are validated at write time (email OR Discord username)
-    return s && typeof s.email === "string" && s.email.length > 0 ? s : null;
+    // sessions are validated at write time (email OR Discord display name)
+    if (!s || typeof s.email !== "string" || s.email.length === 0) return null;
+    const clean: AuthSession = { email: s.email, verifiedAt: typeof s.verifiedAt === "string" ? s.verifiedAt : "" };
+    if (typeof s.avatar === "string" && s.avatar) clean.avatar = s.avatar;
+    if (typeof s.discordId === "string" && s.discordId) clean.discordId = s.discordId;
+    if (typeof s.discordUsername === "string" && s.discordUsername) clean.discordUsername = s.discordUsername;
+    if (typeof s.displayName === "string" && s.displayName) clean.displayName = s.displayName;
+    return clean;
   } catch {
     return null;
   }
+}
+
+/** True when this session came from Sign in with Discord. Pure. */
+export function isDiscordSession(s: AuthSession | null): boolean {
+  return !!s && typeof s.discordId === "string" && s.discordId.length > 0;
 }
 
 export function saveSession(s: AuthSession): void {
@@ -50,6 +67,7 @@ export function saveSession(s: AuthSession): void {
   } catch {
     /* ignore */
   }
+  notifySessionChanged();
 }
 
 export function clearSession(): void {
@@ -58,10 +76,40 @@ export function clearSession(): void {
   } catch {
     /* ignore */
   }
+  notifySessionChanged();
 }
 
 export function saveOwner(): string {
   return loadSession()?.email ?? "guest";
+}
+
+/** Per-username storage key so every explorer's game data (library, voice
+ *  lists, plays, …) files under their own login. Signed-out guests keep the
+ *  bare legacy key (existing guest data is preserved as-is); logins get
+ *  `base:sanitized-owner`. Pure. */
+export function ownerKey(base: string, owner?: string): string {
+  let who = owner ?? "guest";
+  try {
+    who = owner ?? saveOwner();
+  } catch {
+    who = owner ?? "guest";
+  }
+  const trimmed = who.trim();
+  if (!trimmed || trimmed.toLowerCase() === "guest") return base;
+  const safe = trimmed.toLowerCase().replace(/[^a-z0-9@._-]+/g, "_").slice(0, 80) || "guest";
+  return `${base}:${safe}`;
+}
+
+/** Fired (same-tab) whenever the session changes — login, logout, OAuth
+ *  landing — so the UI can hot-swap the explorer's data without reloading. */
+export const SESSION_EVENT = "mythra-session";
+
+export function notifySessionChanged(): void {
+  try {
+    window.dispatchEvent(new Event(SESSION_EVENT));
+  } catch {
+    /* headless */
+  }
 }
 
 export type EntryMode = "offline" | "online";

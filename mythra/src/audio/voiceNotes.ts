@@ -3,6 +3,7 @@
 // and narrate your own story. Dictation (STT → text) reuses voice.ts.
 // Audio blobs live in IndexedDB; metadata lives in Zustand + localStorage.
 // All browser APIs are guarded so Vitest stays headless-safe.
+import { ownerKey } from "../auth/auth";
 
 export type VoiceTargetKind =
   | "clue"
@@ -30,7 +31,7 @@ export interface VoiceNoteMeta {
 
 /** Where a user's recordings physically live (shown in the UI + docs). */
 export const VOICE_STORAGE_NOTE =
-  "Clips live in this browser: audio in IndexedDB “lumen-voice-notes-v1”, list in localStorage “lumen-voice-notes-meta-v1”. Download any clip as .webm below.";
+  "Clips live in this browser: audio in IndexedDB “lumen-voice-notes-v1”, list in localStorage per explorer (“lumen-voice-notes-meta-v1”, filed under your login). Download any clip as .webm below.";
 
 const META_KEY = "lumen-voice-notes-meta-v1";
 const DB_NAME = "lumen-voice-notes-v1";
@@ -98,10 +99,11 @@ export function formatBytes(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Metadata persistence (blobs stay in IndexedDB). */
-export function loadVoiceNoteMetas(): VoiceNoteMeta[] {
+/** Metadata persistence (blobs stay in IndexedDB). Lists are per-username —
+ *  each explorer hears only their own clips (guests keep the legacy key). */
+export function loadVoiceNoteMetas(owner?: string): VoiceNoteMeta[] {
   try {
-    const raw = localStorage.getItem(META_KEY);
+    const raw = localStorage.getItem(ownerKey(META_KEY, owner));
     if (!raw) return [];
     const arr = JSON.parse(raw) as VoiceNoteMeta[];
     return Array.isArray(arr) ? arr : [];
@@ -110,9 +112,9 @@ export function loadVoiceNoteMetas(): VoiceNoteMeta[] {
   }
 }
 
-export function saveVoiceNoteMetas(notes: VoiceNoteMeta[]): void {
+export function saveVoiceNoteMetas(notes: VoiceNoteMeta[], owner?: string): void {
   try {
-    localStorage.setItem(META_KEY, JSON.stringify(notes));
+    localStorage.setItem(ownerKey(META_KEY, owner), JSON.stringify(notes));
   } catch {
     /* ignore quota */
   }

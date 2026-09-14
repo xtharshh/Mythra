@@ -17,7 +17,8 @@ export function CharacterModal({ onClose }: { onClose: () => void }) {
   };
   return (
     <div className="modal-back" onClick={onClose}>
-      <div className="modal card" style={{ width: "min(560px, 94vw)" }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal card" style={{ width: "min(560px, 94vw)", position: "relative" }} onClick={(e) => e.stopPropagation()}>
+        <button className="btn-ghost" style={{ position: "absolute", top: 22, right: 10, padding: "0 8px" }} title="Close" onClick={onClose}>✕</button>
         <div className="case-kicker">Explorer roster · pick your suit</div>
         <h3 style={{ margin: "8px 0 4px" }}>Who descends?</h3>
         <p className="muted" style={{ fontSize: 13 }}>

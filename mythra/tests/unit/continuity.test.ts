@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   applyContribution,
   chapterNumber,
+  deriveTitleFromText,
   forkWorld,
   makeContribution,
   nearestLocation,
+  resolveContributionTitle,
   snapshotVersion,
   validateContribution,
 } from "../../src/community/continuity";
@@ -23,7 +25,7 @@ describe("contribution validation", () => {
     expect(validateContribution({ ...draft, text: "hi" }, world, [], "explorer").ok).toBe(false);
   });
   it("rejects overlong text", () => {
-    expect(validateContribution({ ...draft, text: "x".repeat(601) }, world, [], "explorer").ok).toBe(false);
+    expect(validateContribution({ ...draft, text: "x".repeat(5001) }, world, [], "explorer").ok).toBe(false);
   });
   it("rejects kinds the creator didn't open", () => {
     const r = validateContribution({ ...draft, kind: "story_fragment" }, world, [], "explorer");
@@ -59,6 +61,26 @@ describe("applying contributions (story continues)", () => {
     expect(next.story.background).toContain("The greenhouse");
     expect(validateWorld(next).valid).toBe(true);
   });
+  it("approved clues materialize a 3D cache that reveals them", () => {
+    const c = makeContribution({ ...draft, targetMissionId: "m3_rover" }, world.id, "explorer", true);
+    const next = applyContribution(world, c);
+    const clue = next.clues[next.clues.length - 1];
+    const cache = next.objects.find((o) => o.interaction?.revealsClueId === clue.id);
+    expect(cache).toBeDefined();
+    expect(cache?.locationId).toBe(clue.locationId);
+    expect(validateWorld(next).valid).toBe(true);
+  });
+  it("approved mission ideas become real missions with a 3D marker", () => {
+    const open = { ...world, permissions: { ...world.permissions, allowMissionCreation: true } };
+    const c = makeContribution({ kind: "mission_idea", title: "Light the ridge", text: "Haul a beacon to the ridge and light it so the next crew sees it." }, open.id, "explorer", true);
+    const next = applyContribution(open, c);
+    const mission = next.missions.find((m) => m.title === "Light the ridge");
+    expect(mission).toBeDefined();
+    expect(mission?.objectives).toHaveLength(1);
+    const marker = next.objects.find((o) => o.interaction?.startsMissionId === mission?.id);
+    expect(marker).toBeDefined();
+    expect(validateWorld(next).valid).toBe(true);
+  });
 });
 
 describe("forks + versions (new stories)", () => {
@@ -81,6 +103,31 @@ describe("chapters (continued stories)", () => {
   it("numbers tales from Chapter 1", () => {
     expect(chapterNumber(0)).toBe("Chapter 1");
     expect(chapterNumber(4)).toBe("Chapter 5");
+  });
+});
+
+describe("contribution titles (yours + named from your text)", () => {
+  it("names a blank title from the text", () => {
+    expect(resolveContributionTitle("", "Small boot prints lead away from the garage.")).toBe(
+      "Small boot prints lead away from the garage",
+    );
+  });
+  it("keeps a good title alone, combines when both add something", () => {
+    expect(resolveContributionTitle("Footprints", "Footprints")).toBe("Footprints");
+    const combined = resolveContributionTitle("Footprints", "Small boot prints lead away from the garage toward the ridge.");
+    expect(combined).toContain("Footprints");
+    expect(combined).toContain("Small boot prints");
+    expect(combined.length).toBeLessThanOrEqual(80);
+  });
+  it("falls back instead of failing when the title is blank", () => {
+    expect(validateContribution({ ...draft, title: "" }, world, [], "explorer")).toEqual({ ok: true });
+    const c = makeContribution({ ...draft, title: "  " }, world.id, "explorer", false);
+    expect(c.title.length).toBeGreaterThanOrEqual(3);
+  });
+  it("derives nothing useful from empty text", () => {
+    expect(deriveTitleFromText("")).toBe("");
+    expect(deriveTitleFromText("hi")).toBe("");
+    expect(resolveContributionTitle("", "")).toBe("Untitled discovery");
   });
 });
 

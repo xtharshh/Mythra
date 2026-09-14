@@ -1,0 +1,15 @@
+const B = "http://localhost:4000";
+const email = "vercel-verify@x.com";
+const j = (m, u, b, t) => fetch(B + u, { method: m, headers: { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) }, body: b ? JSON.stringify(b) : undefined }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }));
+const c = await j("POST", "/api/auth/code", { email });
+const v = await j("POST", "/api/auth/verify", { email, code: c.body.code });
+const t = v.body.token;
+console.log("AUTH:", v.status, !!t);
+const demo = JSON.parse((await import("node:fs")).readFileSync("./src/data/demo-world.json", "utf8"));
+console.log("PUBLISH:", JSON.stringify((await j("POST", "/api/worlds", { ...demo, id: "v-tale", slug: "v-tale" }, t)).status));
+console.log("LIB_PUT:", JSON.stringify(await j("PUT", "/api/library", { data: { worlds: [{ id: "v-tale" }], contributions: [], versions: [] } }, t)));
+console.log("LIB_GET:", JSON.stringify((await j("GET", "/api/library", null, t)).body?.data?.worlds));
+console.log("CP_PUT:", JSON.stringify((await j("PUT", "/api/checkpoints/v-tale", { checkpoints: [{ id: "c1" }] }, t)).body));
+console.log("CP_GET:", JSON.stringify((await j("GET", "/api/checkpoints/v-tale", null, t)).body?.data));
+console.log("ROOM:", JSON.stringify((await j("POST", "/api/rooms", { worldId: "v-tale", world: { id: "v-tale" } }, t)).body));
+console.log("DISCOVER:", (await j("GET", "/api/worlds")).body?.map?.((w) => w.id));

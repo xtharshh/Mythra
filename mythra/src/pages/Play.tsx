@@ -18,12 +18,12 @@ import {
   isTtsSupported, isVoiceInputSupported, loadVoiceSettings, parseVoiceCommand,
   saveVoiceSettings, speak, startListening, stopSpeaking, warmVoices,
 } from "../audio/voice";
-import { buildInviteLink, parseInvite } from "../game/invite";
-import { importWorldCode } from "../game/share";
+import { buildInviteLink, buildShortInviteLink, parseInvite, parseRoomId } from "../game/invite";
+import { importWorldCode, importWorldObject } from "../game/share";
 import { RacePanel } from "../components/Race";
 import { triggerObject } from "../three/effects";
 import type { PeerPresence } from "../three/LumenScene";
-import { api, apiOn, apiToken } from "../api/client";
+import { api, apiOn, apiToken, formatPing, pingApi } from "../api/client";
 import { loadSession } from "../auth/auth";
 import { loadCharacter, encodeSuit, decodeSuit } from "../game/suits";
 import type { VoiceSettings } from "../audio/voice";
@@ -53,6 +53,7 @@ export default function Play() {
   const [showControls, setShowControls] = useState(false);
   const [peers, setPeers] = useState<PeerPresence[]>([]);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [milestone, setMilestone] = useState<MilestoneStats | null>(null);
   const [showAudio, setShowAudio] = useState(false);
@@ -69,6 +70,7 @@ export default function Play() {
   const shownChapters = useRef(new Set<string>());
   const toastId = useRef(0);
   const [view, setView] = useState<ViewMode>(() => loadView());
+  const [ping, setPing] = useState<number | null>(null);
   const hasSuit = (s.inventory["suit"] ?? 0) > 0;
 
   /** Milestone moment: toast card + fanfare + spoken line. */
@@ -177,10 +179,41 @@ export default function Play() {
     });
   };
 
-  // load demo world on first visit — or land straight into an invite link
+  // load demo world on first visit — or land straight into a race link.
+  // `?room=` (short, needs the API) wins; legacy `?invite=` carries the tale.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get("room");
+    if (roomParam) {
+      setJoining(true);
+      (async () => {
+        try {
+          const roomId = parseRoomId(roomParam);
+          const r = await api.raceRoom(roomId);
+          if (!r) throw new Error("Couldn't reach the race room — is the API online?");
+          const snapshot = (r as { world?: unknown }).world ?? (await api.world(r.room.worldId));
+          if (!snapshot) throw new Error("That room has no tale — ask the host for a fresh link.");
+          const w = importWorldObject(snapshot);
+          s.setWorld(structuredClone(w));
+          s.addWorld(structuredClone(w));
+          setRoomId(roomId);
+          s.pushLog(`Joined the race — solve it faster than the host.`);
+        } catch (e) {
+          useLumen.getState().pushLog(e instanceof Error ? e.message : "Race join failed.");
+          if (!useLumen.getState().world) {
+            s.setWorld(structuredClone(demo) as unknown as World);
+            s.addWorld(structuredClone(demo) as unknown as World);
+          }
+        } finally {
+          setJoining(false);
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+      })();
+      return;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }
     try {
-      const q = new URLSearchParams(window.location.search).get("invite");
+      const q = params.get("invite");
       if (q) {
         const inv = parseInvite(q);
         const w = importWorldCode(inv.code);
@@ -199,8 +232,13 @@ export default function Play() {
       useLumen.getState().pushLog(e instanceof Error ? e.message : "Invite failed.");
     }
     if (!s.world) {
-      s.setWorld(structuredClone(demo) as unknown as World);
-      s.addWorld(structuredClone(demo) as unknown as World);
+      // reload reopens whoever's last tale (their shelf, their save) —
+      // the demo only greets brand-new explorers
+      useLumen.getState().loadLibrary();
+      if (!useLumen.getState().restoreLastWorld()) {
+        s.setWorld(structuredClone(demo) as unknown as World);
+        s.addWorld(structuredClone(demo) as unknown as World);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -212,6 +250,25 @@ export default function Play() {
 
   // warm TTS voices once so narration has sound from the first beat
   useEffect(() => { warmVoices(); }, []);
+
+  // live ping for the viewport chip — null = local/offline
+  useEffect(() => {
+    if (!apiOn()) {
+      setPing(null);
+      return;
+    }
+    let alive = true;
+    const probe = async () => {
+      const ms = await pingApi();
+      if (alive) setPing(ms);
+    };
+    void probe();
+    const id = window.setInterval(() => void probe(), 10000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
 
   // universe ambience: starts on first gesture (autoplay policy), stops off-surface
   useEffect(() => {
@@ -353,14 +410,14 @@ export default function Play() {
       );
       return;
     }
-    const r = await api.createRoom(w.id);
+    const r = await api.createRoom(w.id, w);
     if (!r) {
       useLumen.getState().pushLog("Couldn't open a race room — API unreachable.");
       return;
     }
     setRoomId(r.roomId);
-    setInviteLink(buildInviteLink(r.roomId, w));
-    useLumen.getState().pushLog("Race room open — send the link, fastest solver wins.");
+    setInviteLink(buildShortInviteLink(r.roomId));
+    useLumen.getState().pushLog("Race room open — short link ready, fastest solver wins.");
   };
 
   const world = s.world ?? (structuredClone(demo) as unknown as World);
@@ -526,6 +583,7 @@ export default function Play() {
     <div ref={playRootRef} style={{ height: "calc(100vh - 57px)", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       <div className="row" style={{ padding: "8px 14px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
         <b>{world.name}</b>
+        {joining && <span className="pill cyan">Joining race…</span>}
         <span className="pill cyan">⚑ story by {ownerLabel(world.ownerId)}</span>
         <span className="muted">{s.reachedLocations.length}/{world.locations.length} sites · {s.completedMissions.length}/{world.missions.length} missions</span>
         <span style={{ flex: 1 }} />
@@ -585,6 +643,9 @@ export default function Play() {
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
           <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
+          <div className="ping-chip" title={apiOn() ? "Live link to the MYTHRA API (10s ping)" : "Offline — playing local"}>
+            <span className="blink" />ping {formatPing(ping, apiOn())}
+          </div>
           {target && (
             <button
               className="btn"

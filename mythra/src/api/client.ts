@@ -1,14 +1,21 @@
 // MYTHRA API client — talks to the Fastify backend when VITE_API_URL is set,
 // otherwise every call resolves local-only (null) and the game plays offline.
 // Auth token lives in localStorage next to the email session.
-import type { World } from "../types";
+import type { Contribution, World, WorldVersion } from "../types";
 
 const TOKEN_KEY = "lumen-api-token";
 
 export function apiBase(): string | null {
   try {
     const base = import.meta.env.VITE_API_URL as string | undefined;
-    return base ? base.replace(/\/$/, "") : null;
+    if (base) return base.replace(/\/$/, "");
+  } catch {
+    /* no Vite env */
+  }
+  // same-origin API (Vercel: frontend + functions on one domain).
+  // Unreachable backends fail soft to null → the game plays offline.
+  try {
+    return typeof window !== "undefined" && window.location?.origin ? window.location.origin : null;
   } catch {
     return null;
   }
@@ -123,6 +130,12 @@ export const api = {
   publish: (world: World) => call<{ ok: boolean; id: string }>("/api/worlds", { method: "POST", body: world, auth: true }),
   saveProgress: (worldId: string, snapshot: unknown) => call<{ ok: boolean }>("/api/progress", { method: "POST", body: { worldId, snapshot }, auth: true }),
   loadProgress: (worldId: string) => call<Record<string, unknown>>(`/api/progress/${encodeURIComponent(worldId)}`, { auth: true }),
+  library: () => call<{ data: { worlds?: World[]; contributions?: Contribution[]; versions?: WorldVersion[] }; updatedAt: string }>("/api/library", { auth: true }),
+  pushLibrary: (data: unknown) => call<{ ok: boolean; updatedAt: string }>("/api/library", { method: "PUT", body: { data }, auth: true }),
+  checkpoints: (worldId: string) =>
+    call<{ data: unknown[]; updatedAt: string }>(`/api/checkpoints/${encodeURIComponent(worldId)}`, { auth: true }),
+  pushCheckpoints: (worldId: string, checkpoints: unknown[]) =>
+    call<{ ok: boolean; updatedAt: string }>(`/api/checkpoints/${encodeURIComponent(worldId)}`, { method: "PUT", body: { checkpoints }, auth: true }),
   submitScore: (worldId: string, missions: number, clues: number) =>
     call<{ ok: boolean }>("/api/leaderboard", { method: "POST", body: { worldId, missions, clues }, auth: true }),
   board: (worldId?: string) =>
@@ -131,9 +144,9 @@ export const api = {
     call<{ ok: boolean }>("/api/presence", { method: "POST", body: { worldId, pos, suit, roomId: roomId ?? "" }, auth: true }),
   peers: (worldId: string, roomId?: string) =>
     call<PresencePeer[]>(`/api/presence?worldId=${encodeURIComponent(worldId)}${roomId ? `&roomId=${encodeURIComponent(roomId)}` : ""}`),
-  createRoom: (worldId: string) => call<{ roomId: string }>("/api/rooms", { method: "POST", body: { worldId }, auth: true }),
+  createRoom: (worldId: string, world?: World) => call<{ roomId: string }>("/api/rooms", { method: "POST", body: world ? { worldId, world } : { worldId }, auth: true }),
   raceRoom: (roomId: string) =>
-    call<{ room: { id: string; worldId: string; host: string; createdAt: string }; board: BoardEntry[] }>(`/api/rooms/${encodeURIComponent(roomId)}`),
+    call<{ room: { id: string; worldId: string; host: string; createdAt: string }; board: BoardEntry[]; world?: World }>(`/api/rooms/${encodeURIComponent(roomId)}`),
   raceProgress: (roomId: string, missions: number, clues: number, finished: boolean) =>
     call<{ ok: boolean }>(`/api/rooms/${encodeURIComponent(roomId)}/progress`, { method: "POST", body: { missions, clues, finished }, auth: true }),
 };

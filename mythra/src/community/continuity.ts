@@ -14,7 +14,7 @@ export const CONTRIBUTION_LIMITS = {
   titleMin: 3,
   titleMax: 80,
   textMin: 10,
-  textMax: 600,
+  textMax: 5000,
   maxPendingPerAuthor: 5,
   maxPerAuthorPerDay: 10,
 } as const;
@@ -36,6 +36,37 @@ export interface ContributionDraft {
   targetLocationId?: string;
 }
 
+const TITLE_FALLBACK = "Untitled discovery";
+
+/** Derive a title from the body: first sentence-ish clause, word-cut, capped. Pure. */
+export function deriveTitleFromText(text: string): string {
+  const clean = text.replace(/\s+/g, " ").trim().replace(/^["'“”‘’([]+/, "");
+  if (!clean) return "";
+  const cut = clean.search(/[.!?…]+(\s|$)/);
+  let head = (cut > 0 ? clean.slice(0, cut) : clean).trim().replace(/["'“”‘’)\].,;:]+$/, "");
+  if (head.length > CONTRIBUTION_LIMITS.titleMax) {
+    head = head.slice(0, CONTRIBUTION_LIMITS.titleMax);
+    const lastSpace = head.lastIndexOf(" ");
+    if (lastSpace > 20) head = head.slice(0, lastSpace);
+  }
+  if (head.length < CONTRIBUTION_LIMITS.titleMin) return "";
+  return head.charAt(0).toUpperCase() + head.slice(1);
+}
+
+/** Final filed title: yours when given, named from your text when blank, and
+ *  combined from both when each adds something new. Pure. */
+export function resolveContributionTitle(title: string, text: string): string {
+  const own = title.replace(/\s+/g, " ").trim();
+  const usableOwn = own.length >= CONTRIBUTION_LIMITS.titleMin ? own : "";
+  const derived = deriveTitleFromText(text);
+  if (!usableOwn) return derived || TITLE_FALLBACK;
+  const cappedOwn = usableOwn.slice(0, CONTRIBUTION_LIMITS.titleMax);
+  if (!derived || derived.toLowerCase() === cappedOwn.toLowerCase()) return cappedOwn;
+  const combined = `${cappedOwn} — ${derived}`;
+  if (combined.length <= CONTRIBUTION_LIMITS.titleMax) return combined;
+  return cappedOwn;
+}
+
 /** Validate a player contribution before it enters the queue (§18.4 limits). */
 export function validateContribution(
   draft: ContributionDraft,
@@ -50,7 +81,7 @@ export function validateContribution(
   if (world.permissions.contributionMode === "owner_only" || world.permissions.contributionMode === "trusted_users_only") {
     return { ok: false, error: "This story only accepts contributions from approved authors." };
   }
-  const title = draft.title.trim();
+  const title = resolveContributionTitle(draft.title, draft.text);
   const text = draft.text.trim();
   if (title.length < CONTRIBUTION_LIMITS.titleMin || title.length > CONTRIBUTION_LIMITS.titleMax) {
     return { ok: false, error: `Title must be ${CONTRIBUTION_LIMITS.titleMin}–${CONTRIBUTION_LIMITS.titleMax} characters.` };
@@ -90,7 +121,7 @@ export function makeContribution(
     worldId,
     author,
     kind: draft.kind,
-    title: draft.title.trim(),
+    title: resolveContributionTitle(draft.title, draft.text),
     text: draft.text.trim(),
     targetMissionId: draft.targetMissionId || undefined,
     targetLocationId: draft.targetLocationId || undefined,
@@ -129,6 +160,89 @@ export function applyContribution(world: World, c: Contribution): World {
     // guard: location must exist (validated above, but stay total)
     if (!next.locations.some((l) => l.id === clue.locationId)) clue.locationId = next.locations[0]?.id ?? "loc_landing";
     next = { ...next, clues: [...next.clues, clue] };
+    // materialize: a 3D cache at the site — walk up, inspect it, pocket the clue
+    const site = next.locations.find((l) => l.id === clue.locationId) ?? next.locations[0];
+    const cacheId = `obj_${c.id}`;
+    if (site && !next.objects.some((o) => o.id === cacheId)) {
+      const inBounds = (n: number) => Math.max(-55, Math.min(55, n));
+      next = {
+        ...next,
+        objects: [
+          ...next.objects,
+          {
+            id: cacheId,
+            type: "artifact",
+            modelId: "crystal",
+            name: `${c.title} cache`,
+            description: `Something left behind: ${c.title}.`,
+            locationId: site.id,
+            position: [inBounds(site.position[0] + 2), 1, inBounds(site.position[2] + 2)],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1],
+            interaction: { kind: "inspect", prompt: `Inspect ${c.title}`, revealsClueId: clue.id },
+            visibility: "visible",
+          },
+        ],
+      };
+    }
+  }
+  if (c.kind === "mission_idea") {
+    // materialize: a real mission + its 3D marker at the site — take it, solve it
+    const markerId = `obj_${c.id}`;
+    const missionId = `m_${c.id}`;
+    const siteId = c.targetLocationId && next.locations.some((l) => l.id === c.targetLocationId)
+      ? c.targetLocationId
+      : (next.locations[0]?.id ?? "loc_landing");
+    const site = next.locations.find((l) => l.id === siteId);
+    if (site && !next.objects.some((o) => o.id === markerId)) {
+      const inBounds = (n: number) => Math.max(-55, Math.min(55, n));
+      next = {
+        ...next,
+        objects: [
+          ...next.objects,
+          {
+            id: markerId,
+            type: "landmark",
+            modelId: "beacon",
+            name: c.title,
+            description: c.text,
+            locationId: site.id,
+            position: [inBounds(site.position[0] - 2), 1, inBounds(site.position[2] - 2)],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1],
+            interaction: { kind: "inspect", prompt: `Take mission: ${c.title}`, startsMissionId: missionId },
+            visibility: "visible",
+          },
+        ],
+      };
+    }
+    if (!next.missions.some((m) => m.id === missionId)) {
+      const order = next.missions.reduce((top, m) => Math.max(top, m.order), -1) + 1;
+      next = {
+        ...next,
+        missions: [
+          ...next.missions,
+          {
+            id: missionId,
+            title: c.title,
+            description: `${c.text} — proposed by ${c.author}.`,
+            type: "exploration",
+            order,
+            difficulty: next.difficulty,
+            prerequisites: [],
+            objectives: [
+              { id: `o_${c.id}`, type: "inspect_object", targetId: markerId, description: `Inspect ${c.title}`, optional: false },
+            ],
+            rewards: [],
+            startCondition: { type: "all", conditions: [] },
+            completionCondition: { type: "all", conditions: [{ type: "object_inspected", objectId: markerId }] },
+            hidden: false,
+            optional: false,
+            estimatedMinutes: 5,
+          },
+        ],
+      };
+    }
   }
   if (c.kind === "story_fragment") {
     next = {

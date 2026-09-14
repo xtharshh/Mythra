@@ -9,10 +9,12 @@ import {
   kindAllowed,
   makeContribution,
   nearestLocation,
+  resolveContributionTitle,
   validateContribution,
 } from "../community/continuity";
 import type { ContributionKind, World } from "../types";
 import { useLumen } from "../state/store";
+import { PROVIDERS, draftChapter, loadAIConfig } from "../ai/providers";
 import { DictateButton, VoiceNotes } from "./VoiceNotes";
 import { explorerName } from "../game/credits";
 import { Icon } from "./icons";
@@ -30,13 +32,43 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
   const { contributions, submitContribution, playerPos } = useLumen();
   const allowed = (Object.keys(KIND_LABELS) as ContributionKind[]).filter((k) => kindAllowed(k, world.permissions));
   const [kind, setKind] = useState<ContributionKind>(allowed[0] ?? "clue");
+  // permissions can open mid-session (Control toggles) — follow them live
+  const safeKind = allowed.includes(kind) ? kind : (allowed[0] ?? "clue");
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [mission, setMission] = useState("");
   const [location, setLocation] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
+  const [idea, setIdea] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [draftErr, setDraftErr] = useState("");
   const here = nearestLocation(playerPos, world.locations);
+  const filedAs = resolveContributionTitle(title, text);
+  const aiLabel = (PROVIDERS.find((p) => p.id === loadAIConfig().provider) ?? PROVIDERS[0]).label;
+
+  const draftWithAI = async () => {
+    setDraftErr("");
+    if (!idea.trim() || drafting) return;
+    setDrafting(true);
+    try {
+      const entries = (world.communityLog ?? []).slice(-3).map((e) => ({ title: e.title, text: e.text }));
+      const d = await draftChapter(loadAIConfig(), {
+        taleName: world.name,
+        premise: world.story.premise,
+        background: world.story.background,
+        recentChapters: entries,
+        kind: safeKind,
+        idea,
+      });
+      setTitle(d.title);
+      setText(d.text);
+    } catch (e) {
+      setDraftErr(e instanceof Error ? e.message : "Drafting failed — your words still stand.");
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   if (allowed.length === 0) {
     return (
@@ -53,7 +85,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
   const submit = () => {
     const author = explorerName(); // signed-in username, else guest explorer
     const draft = {
-      kind,
+      kind: safeKind,
       title,
       text,
       targetMissionId: mission || undefined,
@@ -63,7 +95,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
     if (!check.ok) { setError(check.error); return; }
     const autoApprove = world.permissions.contributionMode === "open";
     submitContribution(makeContribution(draft, world.id, author, autoApprove));
-    setDone(autoApprove ? "✔ Published — the story continues!" : "✉ Submitted — the creator will review it.");
+    setDone(autoApprove ? "✔ Published — read it right away in Journal → Chapters!" : "✉ Sent for review — approve it in Control → Awaiting review and it becomes a chapter.");
     setError("");
     setTitle(""); setText("");
     setTimeout(onClose, 1200);
@@ -74,16 +106,31 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
       <div className="modal card" onClick={(e) => e.stopPropagation()}>
         <b>Continue this story</b>
         <p className="muted" style={{ fontSize: 13 }}>
-          Add a {KIND_LABELS[kind].toLowerCase()} to “{world.name}” as <b>{explorerName()}</b>.
+          Add a {KIND_LABELS[safeKind].toLowerCase()} to “{world.name}” as <b>{explorerName()}</b>.
           {world.permissions.contributionMode === "open" ? " It publishes instantly." : " The creator reviews it first."}
         </p>
         <label>Kind</label>
-        <select value={kind} onChange={(e) => setKind(e.target.value as ContributionKind)}>
+        <select value={safeKind} onChange={(e) => setKind(e.target.value as ContributionKind)}>
           {allowed.map((k) => <option key={k} value={k}>{KIND_LABELS[k]}</option>)}
         </select>
-        <label>Title ({CONTRIBUTION_LIMITS.titleMin}–{CONTRIBUTION_LIMITS.titleMax} chars)</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. A second set of footprints" />
-        {kind !== "story_fragment" && (
+        <div className="row" style={{ marginTop: 8 }}>
+          <div style={{ flex: 1 }}><label>Idea seed — the AI drafts your chapter from this</label>
+            <input value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="e.g. the rover's headlights flicker twice…" autoComplete="off" /></div>
+        </div>
+        <div className="row" style={{ marginTop: 6 }}>
+          <button className="btn-ghost" disabled={drafting || !idea.trim()} title={`Draft with ${aiLabel} — fills title + text, you keep the pen`} onClick={() => void draftWithAI()}>
+            <Icon name="spark" size={13} /> {drafting ? "AI is writing…" : `Draft with ${aiLabel}`}
+          </button>
+        </div>
+        {draftErr && <div style={{ color: "var(--red)", fontSize: 13, marginTop: 6 }}>{draftErr}</div>}
+        <label>Title (optional — blank lets the story name it from your text)</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. A second set of footprints — or leave blank" />
+        {text.trim().length >= CONTRIBUTION_LIMITS.textMin && (
+          <div className="dossier-meta" style={{ marginTop: 4 }}>
+            Filed as: <b style={{ color: "var(--th-accent)" }}>{filedAs}</b>
+          </div>
+        )}
+        {safeKind !== "story_fragment" && (
           <>
             <label>Link to mission (optional)</label>
             <select value={mission} onChange={(e) => setMission(e.target.value)}>
@@ -92,7 +139,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
             </select>
           </>
         )}
-        {kind === "clue" && (
+        {safeKind === "clue" && (
           <>
             <label>Found at location</label>
             <select value={location} onChange={(e) => setLocation(e.target.value)}>
@@ -101,7 +148,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
             </select>
           </>
         )}
-        {(kind === "note" || kind === "story_fragment" || kind === "mission_idea") && (
+        {(safeKind === "note" || safeKind === "story_fragment" || safeKind === "mission_idea") && (
           <>
             <label>Pin to location (optional — defaults to where you stand)</label>
             <select value={location} onChange={(e) => setLocation(e.target.value)}>
@@ -117,13 +164,13 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
             </button>
           </div>
         )}
-        <label>Text ({CONTRIBUTION_LIMITS.textMin}–{CONTRIBUTION_LIMITS.textMax} chars)</label>
-        <textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write what the next explorer should find…" />
+        <label>Text ({CONTRIBUTION_LIMITS.textMin}–{CONTRIBUTION_LIMITS.textMax} chars — room for a full 50-minute chapter)</label>
+        <textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write what the next explorer should find…" />
         <div className="row" style={{ marginTop: 6 }}>
           <DictateButton onText={(t) => setText((v) => `${v} ${t}`.trim())} />
           <span className="muted" style={{ fontSize: 12 }}>Dictate it, or attach voice after submit via Chapters → 🎙️ Narrate.</span>
         </div>
-        {kind === "clue" && (
+        {safeKind === "clue" && (
           <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
             Tip: after submitting, open the Journal → that clue → 🎙️ Narrate to tell it in your own voice.
           </div>
@@ -141,8 +188,9 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
 
 /* ---------------- Chapters: the story so far (canon + community) ---------------- */
 export function ChaptersPanel({ world }: { world: World }) {
+  const pending = useLumen((s) => s.contributions.filter((c) => c.worldId === world.id && c.status === "pending"));
   const entries = world.communityLog ?? [];
-  if (entries.length === 0) return null;
+  if (entries.length === 0 && pending.length === 0) return null;
   const narrate = (title: string, text: string) => {
     const s = loadVoiceSettings();
     speak(`${title}. ${text}`, { ...s, enabled: true });
@@ -150,6 +198,18 @@ export function ChaptersPanel({ world }: { world: World }) {
   return (
     <div className="hud-panel">
       <b>Continued by explorers</b>
+      {pending.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <span className="pill amber">awaiting review · not a chapter yet</span>
+          {pending.map((c) => (
+            <div key={c.id} style={{ marginTop: 6, fontSize: 13 }}>
+              <span className="pill">{KIND_LABELS[c.kind]}</span> <b>{c.title}</b>
+              <div>{c.text}</div>
+              <div className="muted">— {c.author} · approve it in Control → Awaiting review</div>
+            </div>
+          ))}
+        </div>
+      )}
       {entries.map((e, i) => (
         <div key={e.id} style={{ marginTop: 8, fontSize: 13 }}>
           <span className="pill cyan">{chapterNumber(i)}</span> <span className="pill">{KIND_LABELS[e.kind]}</span> <b>{e.title}</b>
@@ -161,6 +221,39 @@ export function ChaptersPanel({ world }: { world: World }) {
           <VoiceNotes worldId={world.id} targetKind="chapter" targetId={e.id} label={e.title} compact />
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ---------------- Chapters reader: same story, every chapter ---------------- */
+export function ChaptersReaderModal({ world, onClose, onOpenTale }: { world: World; onClose: () => void; onOpenTale: () => void }) {
+  const entries = world.communityLog ?? [];
+  const narrate = (title: string, text: string) => {
+    const s = loadVoiceSettings();
+    speak(`${title}. ${text}`, { ...s, enabled: true });
+  };
+  return (
+    <div className="modal-back" onClick={onClose}>
+      <div className="modal card" style={{ width: "min(640px, 94vw)", maxHeight: "84vh", overflow: "auto", position: "relative" }} onClick={(e) => e.stopPropagation()}>
+        <button className="btn-ghost" style={{ position: "absolute", top: 22, right: 10, padding: "0 8px" }} title="Close chapters" onClick={onClose}>✕</button>
+        <div className="case-kicker">◈ same story · continued by explorers</div>
+        <h3 style={{ margin: "8px 0 4px" }}>{world.name} · {entries.length} chapter{entries.length === 1 ? "" : "s"}</h3>
+        <p className="muted" style={{ fontSize: 13 }}>{world.story.premise}</p>
+        {entries.map((e, i) => (
+          <div key={e.id} style={{ marginTop: 10, fontSize: 13, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+            <span className="pill cyan">{chapterNumber(i)}</span> <span className="pill">{KIND_LABELS[e.kind]}</span> <b>{e.title}</b>
+            <div style={{ marginTop: 4 }}>{e.text}</div>
+            <div className="muted">— {e.author}</div>
+            <div className="row" style={{ marginTop: 4 }}>
+              <button className="btn-ghost" style={{ padding: "2px 8px" }} title="Hear this chapter (TTS)" onClick={() => narrate(e.title, e.text)}>🔊 Narrate</button>
+            </div>
+          </div>
+        ))}
+        <div className="row" style={{ marginTop: 14 }}>
+          <button className="btn" onClick={onOpenTale}><Icon name="play" size={13} /> Open tale</button>
+          <button className="btn-ghost" onClick={onClose}>Close</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -259,3 +352,4 @@ export function VersionsPanel({ world }: { world: World }) {
     </div>
   );
 }
+

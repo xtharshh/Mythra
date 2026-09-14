@@ -1,10 +1,10 @@
 // Simple email login UI (skills.md G10): dossier-styled sign-in modal.
 // No password — 6-digit code. Uses the MYTHRA API when connected,
 // otherwise fully local. Either way the session namespaces saves.
-import { useState } from "react";
-import { clearSession, isValidEmail, loadSession, normalizeEmail, requestLoginCode, saveEntryChoice, verifyLoginCode } from "../auth/auth";
+import { useEffect, useState } from "react";
+import { clearSession, isDiscordSession, isValidEmail, loadEntryChoice, loadSession, normalizeEmail, requestLoginCode, saveEntryChoice, SESSION_EVENT, verifyLoginCode } from "../auth/auth";
 import type { AuthSession, EntryMode } from "../auth/auth";
-import { api, apiOn, discordLoginUrl, setApiToken } from "../api/client";
+import { api, apiOn, discordLoginUrl, pingApi, setApiToken } from "../api/client";
 import { useLumen } from "../state/store";
 import { Icon } from "./icons";
 
@@ -14,13 +14,10 @@ export function useAuthSession(): { session: AuthSession | null; refresh: () => 
 }
 
 /** First-run gate: offline solo flight, or online party via Discord. */
-export function EntryModal({ onPick }: { onPick: (mode: EntryMode) => void }) {
-  const [err, setErr] = useState("");
+export function EntryModal({ onPick, onClose }: { onPick: (mode: EntryMode) => void; onClose: () => void }) {
+  // online works against same-origin or configured APIs and degrades
+  // gracefully offline — no gatekeeping here, the flows explain themselves
   const online = () => {
-    if (!apiOn()) {
-      setErr("Online needs the API: start it (npm run dev:api) and set VITE_API_URL, then restart the game.");
-      return;
-    }
     saveEntryChoice("online");
     onPick("online");
   };
@@ -30,7 +27,8 @@ export function EntryModal({ onPick }: { onPick: (mode: EntryMode) => void }) {
   };
   return (
     <div className="modal-back">
-      <div className="modal card" style={{ width: "min(560px, 94vw)", textAlign: "center" }}>
+      <div className="modal card" style={{ width: "min(560px, 94vw)", textAlign: "center", position: "relative" }}>
+        <button className="btn-ghost" style={{ position: "absolute", top: 22, right: 10, padding: "0 8px" }} title="Close" onClick={onClose}>✕</button>
         <div className="case-kicker">Welcome to MYTHRA · first descent</div>
         <h2 className="case-title" style={{ fontSize: 32 }}>How do you <em>fly?</em></h2>
         <p className="muted">Solo expedition on this machine — or online party with Discord sign-in, races, and shared skies.</p>
@@ -43,7 +41,6 @@ export function EntryModal({ onPick }: { onPick: (mode: EntryMode) => void }) {
           </button>
         </div>
         <div className="dossier-meta" style={{ marginTop: 8 }}>offline = solo + local saves · online = Discord sign-in + races + leaderboard</div>
-        {err && <div style={{ color: "var(--red)", fontSize: 13, marginTop: 8 }}>{err}</div>}
       </div>
     </div>
   );
@@ -57,6 +54,19 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
   const [demoCode, setDemoCode] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [viaApi, setViaApi] = useState(false);
+  const [apiLive, setApiLive] = useState<boolean | null>(null);
+
+  // same-origin backends answer; pure-offline machines don't — probe once
+  useEffect(() => {
+    let alive = true;
+    void pingApi().then((ms) => {
+      if (alive) setApiLive(ms !== null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const send = async () => {
     setErr("");
@@ -67,17 +77,26 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       if (apiOn()) {
-        const r = await api.requestCode(normalizeEmail(email));
-        if (!r) throw new Error("API unreachable — playing local. Code issued locally instead.");
-        setSentTo(r.email);
-        setDemoCode(r.code);
-        pushLog(`Sign-in code sent to ${r.email} (via MYTHRA API).`);
-      } else {
-        const c = requestLoginCode(email);
-        setSentTo(normalizeEmail(email));
-        setDemoCode(c); // demo: no mail server, show the code
-        pushLog(`Sign-in code sent to ${normalizeEmail(email)}.`);
+        try {
+          const r = await api.requestCode(normalizeEmail(email));
+          if (r) {
+            setSentTo(r.email);
+            setDemoCode(r.code);
+            setViaApi(true);
+            setApiLive(true);
+            pushLog(`Sign-in code sent to ${r.email} (via MYTHRA API).`);
+            return;
+          }
+        } catch {
+          /* unreachable — fall through to the local code below */
+        }
+        pushLog("API unreachable — issuing the code locally instead.");
       }
+      const c = requestLoginCode(email);
+      setSentTo(normalizeEmail(email));
+      setDemoCode(c); // demo: no mail server, show the code
+      setViaApi(false);
+      pushLog(`Sign-in code sent to ${normalizeEmail(email)}.`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not send code.");
     } finally {
@@ -96,9 +115,9 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
       return;
     }
     try {
-      if (apiOn()) {
+      if (viaApi) {
         const r = await api.verifyCode(sentTo, code.trim());
-        if (!r) throw new Error("API unreachable — verify locally instead.");
+        if (!r) throw new Error("API unreachable — press Send code again.");
         setApiToken(r.token);
         const { saveSession } = await import("../auth/auth");
         saveSession({ email: r.email, verifiedAt: new Date().toISOString() });
@@ -157,12 +176,12 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
         {err && <div style={{ color: "var(--red)", fontSize: 13, marginTop: 8 }}>{err}</div>}
         <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
           <div className="dossier-meta" style={{ marginBottom: 6 }}>or skip the code —</div>
-          {discordLoginUrl() ? (
+          {apiLive === false ? (
+            <div className="muted" style={{ fontSize: 12 }}>Discord sign-in needs the API online — play offline, or start it.</div>
+          ) : (
             <a className="btn" style={{ display: "inline-flex", gap: 8, alignItems: "center", background: "#5865F2", color: "#fff", borderColor: "#2b2f6b" }} href={discordLoginUrl()!} title="Sign in with Discord — username shows everywhere">
               <Icon name="discord" size={15} /> Sign in with Discord
             </a>
-          ) : (
-            <div className="muted" style={{ fontSize: 12 }}>Discord sign-in needs the API connected (VITE_API_URL).</div>
           )}
         </div>
       </div>
@@ -173,6 +192,20 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
 export function AuthButton({ onSignIn }: { onSignIn: () => void }) {
   const { pushLog, loadCheckpoints } = useLumen();
   const [session, setSession] = useState<AuthSession | null>(() => loadSession());
+  const [profileOpen, setProfileOpen] = useState(false);
+  // follow logins/logouts live (same tab event + other tabs), no reload
+  useEffect(() => {
+    const refresh = () => {
+      setSession(loadSession());
+      setProfileOpen(false);
+    };
+    window.addEventListener(SESSION_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(SESSION_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
   if (!session) {
     return (
       <button className="btn-ghost" title="Sign in with email — saves file under you" onClick={onSignIn}>
@@ -184,15 +217,94 @@ export function AuthButton({ onSignIn }: { onSignIn: () => void }) {
     clearSession();
     setApiToken(null);
     setSession(null);
+    setProfileOpen(false);
     pushLog("Signed out — filing as guest.");
     loadCheckpoints();
   };
+  const label = session.displayName || session.email.split("@")[0];
+  const open = () => {
+    setSession(loadSession());
+    setProfileOpen(true);
+  };
   return (
-    <button className="btn-ghost" title={`Signed in as ${session.email} — click to sign out`} onClick={logout} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-      {session.avatar
-        ? <img src={session.avatar} alt="" width={18} height={18} style={{ borderRadius: "50%" }} />
-        : <Icon name="check" />}
-      {session.email.split("@")[0]}
-    </button>
+    <>
+      <button className="btn-ghost" title={`${label} — view profile`} onClick={open} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+        {session.avatar
+          ? <img src={session.avatar} alt="" width={18} height={18} style={{ borderRadius: "50%" }} />
+          : <Icon name="check" />}
+        {label}
+      </button>
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} onLogout={logout} />}
+    </>
+  );
+}
+
+/** Clicking the navbar username shows who is signed in — Discord data when
+ *  present, session facts always — with a way back out (logout). */
+function ProfileModal({ onClose, onLogout }: { onClose: () => void; onLogout: () => void }) {
+  const [session] = useState<AuthSession | null>(() => loadSession());
+  if (!session) return null;
+  const discord = isDiscordSession(session);
+  let mode = "offline";
+  try {
+    mode = loadEntryChoice() ?? "offline";
+  } catch {
+    /* headless */
+  }
+  let signedIn = session.verifiedAt;
+  try {
+    const d = new Date(session.verifiedAt);
+    if (!Number.isNaN(d.getTime())) signedIn = d.toLocaleString();
+  } catch {
+    /* keep raw */
+  }
+  const title = session.displayName || session.email;
+  return (
+    <div className="modal-back" onClick={onClose}>
+      <div className="modal card" onClick={(e) => e.stopPropagation()} style={{ position: "relative" }}>
+        <button className="btn-ghost" style={{ position: "absolute", top: 22, right: 10, padding: "0 8px" }} title="Close profile" onClick={onClose}>✕</button>
+        <div className="case-kicker">{discord ? "Discord explorer · signed in" : "Explorer · signed in"}</div>
+        <div className="row" style={{ marginTop: 8, gap: 12 }}>
+          {session.avatar
+            ? <img src={session.avatar} alt="" width={52} height={52} style={{ borderRadius: "50%", border: "2px solid var(--th-accent)" }} />
+            : <span style={{ color: "var(--th-accent)", display: "inline-flex" }}><Icon name="check" size={28} /></span>}
+          <div>
+            <h3 style={{ margin: 0 }}>{title}</h3>
+            {discord && session.discordUsername && <div className="dossier-meta">@{session.discordUsername}</div>}
+            <div className="row" style={{ gap: 6, marginTop: 4 }}>
+              <span className="pill cyan">{mode}</span>
+              {discord && <span className="pill">discord</span>}
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+          {discord && session.discordId && (
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="muted">Discord ID</span><span className="dossier-meta">{session.discordId}</span>
+            </div>
+          )}
+          {discord && session.discordUsername && (
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="muted">Handle</span><span className="dossier-meta">@{session.discordUsername}</span>
+            </div>
+          )}
+          {!discord && (
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="muted">Email</span><span className="dossier-meta">{session.email}</span>
+            </div>
+          )}
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <span className="muted">Saves filed under</span><span className="dossier-meta">{session.email}</span>
+          </div>
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <span className="muted">Signed in</span><span className="dossier-meta">{signedIn}</span>
+          </div>
+        </div>
+        <div className="row" style={{ marginTop: 14 }}>
+          <button className="btn-ghost" onClick={onLogout}>Sign out</button>
+          <button className="btn" onClick={onClose}>Back to surface</button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -51,7 +51,13 @@ export function importWorldCode(code: string): World {
   } catch {
     throw new Error("That code isn't a world — copy the full Export text.");
   }
-  const parsed = worldSchema.safeParse(raw);
+  return importWorldObject(raw);
+}
+
+/** Schema-check an already-decoded world object (room snapshots, API tales).
+ *  Throws a human-readable error. */
+export function importWorldObject(data: unknown): World {
+  const parsed = worldSchema.safeParse(data);
   if (!parsed.success) {
     throw new Error(`That world failed checks: ${parsed.error.issues[0]?.message ?? "invalid shape"}`);
   }

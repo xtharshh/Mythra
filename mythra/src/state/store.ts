@@ -1,7 +1,8 @@
 // Zustand game store — local single-player state with localStorage persistence (§4.4, §3.1)
 import { create } from "zustand";
 import { applyContribution, snapshotVersion } from "../community/continuity";
-import { saveOwner } from "../auth/auth";
+import { ownerKey, saveOwner } from "../auth/auth";
+import { api, apiOn, apiToken } from "../api/client";
 import { checkpointKey, makeCheckpointId, pruneCheckpoints } from "../game/checkpoints";
 import type { Checkpoint, CheckpointKind } from "../game/checkpoints";
 import { loadVoiceNoteMetas, saveVoiceNoteMetas } from "../audio/voiceNotes";
@@ -41,6 +42,8 @@ interface LumenStore {
   setWorld: (w: World | null) => void;
   addWorld: (w: World) => void;
   updateWorld: (w: World) => void;
+  /** Delete an unwanted story + its queue, versions, saves and checkpoints. */
+  deleteWorld: (id: string) => void;
   submitContribution: (c: Contribution) => void;
   /** Approve/reject a contribution. Approval applies it to the story + snapshots a version. */
   reviewContribution: (id: string, approve: boolean) => void;
@@ -72,16 +75,97 @@ interface LumenStore {
   unpublishWorld: () => void;
   movePlayer: (p: [number, number, number]) => void;
   pushLog: (msg: string) => void;
-  save: () => void;
+  save: (silent?: boolean) => void;
   load: () => void;
   persistLibrary: () => void;
   loadLibrary: () => void;
+  /** Pull the cloud shelf (last-write-wins). Fire-and-forget safe. */
+  syncLibraryFromServer: (owner: string) => void;
+  /** Union-merge cloud checkpoints for one world. Fire-and-forget safe. */
+  syncCheckpointsFromServer: (owner: string, worldId: string) => void;
+  /** Reopen whoever's last tale (reload-safe). False when none stored. */
+  restoreLastWorld: () => boolean;
+  /** Hot-swap to whoever just signed in/out: reload their library, saves,
+   *  checkpoints, voice notes + social — no page reload. */
+  switchUser: () => void;
   reset: () => void;
   gameState: () => GameState;
 }
 
 const SAVE_KEY = "lumen-save-v1";
 const LIB_KEY = "lumen-library-v1";
+const LIB_META_KEY = "lumen-library-meta";
+const PLAYS_KEY = "lumen-plays-v1";
+const RATINGS_KEY = "lumen-ratings-v1";
+const LAST_KEY = "lumen-last-world";
+
+/** Fresh run progress (fresh expedition for whoever just signed in). */
+function freshRun(): ProgressSnapshot {
+  return {
+    inventory: {}, discoveredClues: [], completedMissions: [], activeMissions: [],
+    solvedPuzzles: [], inspectedObjects: [], reachedLocations: ["loc_landing"],
+    flags: {}, notes: {}, playerPos: [0, 1.7, 6],
+  };
+}
+
+export interface LibraryData {
+  worlds: World[];
+  contributions: Contribution[];
+  versions: WorldVersion[];
+}
+
+/** Library conflict rule: newest updatedAt wins (null/empty local loses to any remote). Pure. */
+export function mergeLibrary(
+  local: LibraryData,
+  localAt: string | null,
+  remote: Partial<LibraryData> | null,
+  remoteAt: string | null,
+): { data: LibraryData; updatedAt: string; fromRemote: boolean } {
+  const localEmpty = local.worlds.length === 0 && local.contributions.length === 0 && local.versions.length === 0;
+  if (remote && remoteAt && (localEmpty || !localAt || remoteAt > localAt)) {
+    return {
+      data: { worlds: remote.worlds ?? [], contributions: remote.contributions ?? [], versions: remote.versions ?? [] },
+      updatedAt: remoteAt,
+      fromRemote: true,
+    };
+  }
+  return { data: local, updatedAt: localAt ?? new Date(0).toISOString(), fromRemote: false };
+}
+
+/** Checkpoint conflict rule: union by id (never lose either side), then prune. Pure. */
+export function mergeCheckpoints(a: Checkpoint[], b: Checkpoint[]): Checkpoint[] {
+  const map = new Map<string, Checkpoint>();
+  for (const c of [...a, ...b]) {
+    if (c && typeof c.id === "string") map.set(c.id, c);
+  }
+  return pruneCheckpoints([...map.values()]);
+}
+
+function readLocal<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(ownerKey(key));
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocal(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(ownerKey(key), JSON.stringify(value));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+/** Cloud available = API configured + a live session token. */
+function cloudOn(): boolean {
+  try {
+    return apiOn() && !!apiToken();
+  } catch {
+    return false;
+  }
+}
 
 function snapshot(s: LumenStore): ProgressSnapshot {
   return {
@@ -90,6 +174,9 @@ function snapshot(s: LumenStore): ProgressSnapshot {
     reachedLocations: s.reachedLocations, flags: s.flags, notes: s.notes, playerPos: s.playerPos,
   };
 }
+
+/** Debounced autosave for journal notes (typing never loses ink). */
+let noteSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useLumen = create<LumenStore>((set, get) => ({
   world: null,
@@ -112,14 +199,39 @@ export const useLumen = create<LumenStore>((set, get) => ({
   playerPos: [0, 1.7, 6],
   log: ["Welcome to MYTHRA."],
 
-  setWorld: (world) => set({ world }),
+  setWorld: (world) => {
+    set({ world });
+    try {
+      if (world) localStorage.setItem(ownerKey(LAST_KEY), world.id);
+    } catch { /* ignore */ }
+  },
   addWorld: (w) => {
     set((s) => ({ worlds: [...s.worlds.filter((x) => x.id !== w.id), w], world: w }));
+    try {
+      localStorage.setItem(ownerKey(LAST_KEY), w.id);
+    } catch { /* ignore */ }
     get().persistLibrary();
   },
   updateWorld: (w) => {
     set((s) => ({ worlds: s.worlds.map((x) => (x.id === w.id ? w : x)), world: s.world?.id === w.id ? w : s.world }));
     get().persistLibrary();
+  },
+  deleteWorld: (id) => {
+    const s = get();
+    const name = s.worlds.find((x) => x.id === id)?.name ?? (s.world?.id === id ? s.world.name : id);
+    set((prev) => ({
+      worlds: prev.worlds.filter((x) => x.id !== id),
+      world: prev.world?.id === id ? null : prev.world,
+      contributions: prev.contributions.filter((c) => c.worldId !== id),
+      versions: prev.versions.filter((v) => v.worldId !== id),
+    }));
+    try {
+      localStorage.removeItem(`${SAVE_KEY}:${saveOwner()}:${id}`);
+      localStorage.removeItem(checkpointKey(saveOwner(), id));
+      if (localStorage.getItem(ownerKey(LAST_KEY)) === id) localStorage.removeItem(ownerKey(LAST_KEY));
+    } catch { /* ignore */ }
+    get().persistLibrary();
+    get().pushLog(`Deleted story: ${name}.`);
   },
 
   submitContribution: (c) => {
@@ -201,7 +313,19 @@ export const useLumen = create<LumenStore>((set, get) => ({
   solvePuzzle: (id) => set((s) => (s.solvedPuzzles.includes(id) ? {} : { solvedPuzzles: [...s.solvedPuzzles, id] })),
   reachLocation: (id) => set((s) => (s.reachedLocations.includes(id) ? {} : { reachedLocations: [...s.reachedLocations, id] })),
   setFlag: (k, v) => set((s) => ({ flags: { ...s.flags, [k]: v } })),
-  setNote: (clueId, text) => set((s) => ({ notes: { ...s.notes, [clueId]: text } })),
+  setNote: (clueId, text) => {
+    set((s) => ({ notes: { ...s.notes, [clueId]: text } }));
+    // notes persist where they are written: quiet-save shortly after typing
+    try {
+      if (noteSaveTimer !== null) clearTimeout(noteSaveTimer);
+      noteSaveTimer = setTimeout(() => {
+        noteSaveTimer = null;
+        get().save(true);
+      }, 1500);
+    } catch {
+      /* headless */
+    }
+  },
   loadVoiceNotes: () => set({ voiceNotes: loadVoiceNoteMetas() }),
   addVoiceNote: (meta) => {
     set((s) => {
@@ -220,14 +344,20 @@ export const useLumen = create<LumenStore>((set, get) => ({
   movePlayer: (p) => set({ playerPos: p }),
   pushLog: (msg) => set((s) => ({ log: [...s.log.slice(-49), msg] })),
 
-  save: () => {
+  save: (silent) => {
     const s = get();
     if (!s.world) return;
+    const snap = snapshot(s);
     try {
       // per-explorer saves; legacy guest key kept as fallback on load
-      localStorage.setItem(`${SAVE_KEY}:${saveOwner()}:${s.world.id}`, JSON.stringify(snapshot(s)));
-      get().pushLog("Progress saved.");
+      localStorage.setItem(`${SAVE_KEY}:${saveOwner()}:${s.world.id}`, JSON.stringify(snap));
+      if (!silent) get().pushLog("Progress saved.");
     } catch { /* ignore */ }
+    // cloud copy (ACID side) — best effort, never blocks the game
+    if (cloudOn() && s.world) {
+      const worldId = s.world.id;
+      void api.saveProgress(worldId, snap).catch(() => undefined);
+    }
   },
   load: () => {
     const s = get();
@@ -249,17 +379,127 @@ export const useLumen = create<LumenStore>((set, get) => ({
 
   persistLibrary: () => {
     const s = get();
+    const data = { worlds: s.worlds, contributions: s.contributions, versions: s.versions };
+    const updatedAt = new Date().toISOString();
     try {
-      localStorage.setItem(LIB_KEY, JSON.stringify({ worlds: s.worlds, contributions: s.contributions, versions: s.versions }));
+      // per-username library (guests keep the legacy global key)
+      localStorage.setItem(ownerKey(LIB_KEY), JSON.stringify(data));
+      localStorage.setItem(ownerKey(LIB_META_KEY), JSON.stringify({ updatedAt }));
     } catch { /* ignore quota */ }
+    // cloud copy (ACID side) — best effort, never blocks the game
+    if (cloudOn()) {
+      void api.pushLibrary(data).catch(() => undefined);
+    }
   },
   loadLibrary: () => {
     try {
-      const raw = localStorage.getItem(LIB_KEY);
-      if (!raw) return;
+      const raw = localStorage.getItem(ownerKey(LIB_KEY));
+      // no stored shelf for this explorer → show an empty one (never the
+      // previous sign-in's worlds)
+      if (!raw) {
+        set({ worlds: [], contributions: [], versions: [] });
+        return;
+      }
       const lib = JSON.parse(raw) as { worlds?: World[]; contributions?: Contribution[]; versions?: WorldVersion[] };
       set({ worlds: lib.worlds ?? [], contributions: lib.contributions ?? [], versions: lib.versions ?? [] });
     } catch { /* ignore corrupt */ }
+  },
+  syncLibraryFromServer: (owner) => {
+    if (!cloudOn()) return;
+    void (async () => {
+      try {
+        const remote = await api.library();
+        if (!remote || saveOwner() !== owner) return;
+        const s = get();
+        const meta = readLocal<{ updatedAt?: string }>(LIB_META_KEY);
+        const merged = mergeLibrary(
+          { worlds: s.worlds, contributions: s.contributions, versions: s.versions },
+          meta?.updatedAt ?? null,
+          remote.data,
+          remote.updatedAt ?? null,
+        );
+        if (merged.fromRemote && saveOwner() === owner) {
+          set({ worlds: merged.data.worlds, contributions: merged.data.contributions, versions: merged.data.versions });
+          writeLocal(LIB_KEY, merged.data);
+          writeLocal(LIB_META_KEY, { updatedAt: merged.updatedAt });
+          get().pushLog("Shelf synced from the cloud.");
+        }
+      } catch { /* offline — local shelf stands */ }
+    })();
+  },
+  syncCheckpointsFromServer: (owner, worldId) => {
+    if (!cloudOn()) return;
+    void (async () => {
+      try {
+        const remote = await api.checkpoints(worldId);
+        if (!remote || !Array.isArray(remote.data) || saveOwner() !== owner) return;
+        const merged = mergeCheckpoints(get().checkpoints, remote.data as Checkpoint[]);
+        if (saveOwner() !== owner) return;
+        set({ checkpoints: merged });
+        try {
+          localStorage.setItem(checkpointKey(owner, worldId), JSON.stringify(merged));
+        } catch { /* ignore */ }
+      } catch { /* offline — local checkpoints stand */ }
+    })();
+  },
+  restoreLastWorld: () => {
+    try {
+      const lastId = localStorage.getItem(ownerKey(LAST_KEY));
+      if (!lastId) return false;
+      const found = get().worlds.find((w) => w.id === lastId);
+      if (!found) return false;
+      set({ world: structuredClone(found) });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  switchUser: () => {
+    // reload every per-username slice for the new signer…
+    get().loadLibrary();
+    // …reopen their last tale (reload keeps the expedition)…
+    if (!get().world) get().restoreLastWorld();
+    get().loadVoiceNotes();
+    get().loadSocial();
+    get().loadCheckpoints();
+    // …then hand them their own run: saved progress when they have it,
+    // otherwise a fresh expedition on the current tale
+    const w = get().world;
+    if (w) {
+      try {
+        const raw = localStorage.getItem(`${SAVE_KEY}:${saveOwner()}:${w.id}`);
+        if (raw) {
+          const snap = JSON.parse(raw) as ProgressSnapshot;
+          set({ ...snap, playerPos: snap.playerPos ?? [0, 1.7, 6] });
+        } else {
+          set({ ...freshRun() });
+        }
+      } catch {
+        set({ ...freshRun() });
+      }
+    } else {
+      set({ ...freshRun() });
+    }
+    get().pushLog(`Now filing as ${saveOwner()}.`);
+    // …and let the cloud fill the gaps (never clobbers local runs)
+    if (cloudOn()) {
+      const owner = saveOwner();
+      get().syncLibraryFromServer(owner);
+      const current = get().world;
+      if (current) {
+        get().syncCheckpointsFromServer(owner, current.id);
+        try {
+          if (!localStorage.getItem(`${SAVE_KEY}:${owner}:${current.id}`)) {
+            void api.loadProgress(current.id).then((snap) => {
+              if (snap && saveOwner() === owner) {
+                set({ ...(snap as unknown as ProgressSnapshot), playerPos: (snap as { playerPos?: [number, number, number] }).playerPos ?? [0, 1.7, 6] });
+                get().pushLog("Cloud save restored.");
+              }
+            }).catch(() => undefined);
+          }
+        } catch { /* ignore */ }
+      }
+    }
   },
 
   gameState: () => {
@@ -306,6 +546,9 @@ export const useLumen = create<LumenStore>((set, get) => ({
     try {
       localStorage.setItem(checkpointKey(cp.owner, cp.worldId), JSON.stringify(next));
     } catch { /* ignore quota */ }
+    if (cloudOn()) {
+      void api.pushCheckpoints(cp.worldId, next).catch(() => undefined);
+    }
     get().pushLog(kind === "manual" ? `Checkpoint saved: ${cp.label}` : `Checkpoint: ${cp.label}`);
   },
   restoreCheckpoint: (id) => {
@@ -324,13 +567,16 @@ export const useLumen = create<LumenStore>((set, get) => ({
     try {
       localStorage.setItem(checkpointKey(cp.owner, cp.worldId), JSON.stringify(next));
     } catch { /* ignore */ }
+    if (cloudOn()) {
+      void api.pushCheckpoints(cp.worldId, next).catch(() => undefined);
+    }
     get().pushLog(`Deleted checkpoint: ${cp.label}`);
   },
 
   loadSocial: () => {
     try {
-      const plays = JSON.parse(localStorage.getItem("lumen-plays-v1") ?? "{}") as Record<string, number>;
-      const ratings = JSON.parse(localStorage.getItem("lumen-ratings-v1") ?? "{}") as LumenStore["ratings"];
+      const plays = JSON.parse(localStorage.getItem(ownerKey(PLAYS_KEY)) ?? "{}") as Record<string, number>;
+      const ratings = JSON.parse(localStorage.getItem(ownerKey(RATINGS_KEY)) ?? "{}") as LumenStore["ratings"];
       set({
         plays: plays && typeof plays === "object" ? plays : {},
         ratings: ratings && typeof ratings === "object" ? ratings : {},
@@ -343,7 +589,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
     set((s) => {
       const plays = { ...s.plays, [worldId]: (s.plays[worldId] ?? 0) + 1 };
       try {
-        localStorage.setItem("lumen-plays-v1", JSON.stringify(plays));
+        localStorage.setItem(ownerKey(PLAYS_KEY), JSON.stringify(plays));
       } catch { /* ignore */ }
       return { plays };
     });
@@ -356,7 +602,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
       const count = prev.mine === undefined ? prev.count + 1 : prev.count;
       const ratings = { ...s.ratings, [worldId]: { total, count, mine: clipped } };
       try {
-        localStorage.setItem("lumen-ratings-v1", JSON.stringify(ratings));
+        localStorage.setItem(ownerKey(RATINGS_KEY), JSON.stringify(ratings));
       } catch { /* ignore */ }
       return { ratings };
     });

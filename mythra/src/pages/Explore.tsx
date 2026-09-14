@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { forkWorld } from "../community/continuity";
-import { exportWorldCode, importWorldCode } from "../game/share";
+import { exportWorldCode, importWorldCode, importWorldObject } from "../game/share";
 import { ownerLabel } from "../game/credits";
 import { useLumen } from "../state/store";
+import { ChaptersReaderModal } from "../components/Community";
+import { api, apiOn } from "../api/client";
+import type { RemoteWorldMeta } from "../api/client";
 import { Leaderboard } from "../components/Leaderboard";
 import { Icon } from "../components/icons";
 import type { Difficulty, World } from "../types";
@@ -37,7 +40,7 @@ function Stars({ value, onRate }: { value: number; onRate?: (n: number) => void 
 }
 
 export default function Explore() {
-  const { worlds, world, addWorld, setWorld, pushLog, contributions, plays, ratings, rateWorld, loadSocial } = useLumen();
+  const { worlds, world, addWorld, setWorld, deleteWorld, pushLog, contributions, plays, ratings, rateWorld, loadSocial } = useLumen();
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [diff, setDiff] = useState<"all" | Difficulty>("all");
@@ -45,8 +48,50 @@ export default function Explore() {
   const [code, setCode] = useState("");
   const [importErr, setImportErr] = useState("");
   const [exportFor, setExportFor] = useState<string | null>(null);
+  const [chaptersFor, setChaptersFor] = useState<World | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // shared tales: approved + published, joinable by every signed-in solver
+  const [remote, setRemote] = useState<RemoteWorldMeta[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteErr, setRemoteErr] = useState("");
+  const [joiningId, setJoiningId] = useState<string | null>(null);
 
   useEffect(() => { loadSocial(); }, [loadSocial]);
+
+  const loadRemote = async () => {
+    if (!apiOn()) return;
+    setRemoteLoading(true); setRemoteErr("");
+    try {
+      const list = await api.worlds();
+      if (!list) throw new Error("API unreachable.");
+      setRemote(list.filter((w) => w && typeof w.id === "string"));
+    } catch (e) {
+      setRemoteErr(e instanceof Error ? e.message : "Couldn't load shared tales.");
+    } finally {
+      setRemoteLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadRemote();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const enterRemote = async (meta: RemoteWorldMeta) => {
+    setJoiningId(meta.id); setRemoteErr("");
+    try {
+      const data = await api.world(meta.id);
+      if (!data) throw new Error("Couldn't fetch that tale — API unreachable.");
+      const w = importWorldObject(data);
+      addWorld(structuredClone(w));
+      pushLog(`Joined tale: ${w.name} — solve the mystery.`);
+      nav("/play");
+    } catch (e) {
+      setRemoteErr(e instanceof Error ? e.message : "Join failed.");
+    } finally {
+      setJoiningId(null);
+    }
+  };
 
   const all: World[] = useMemo(() => {
     const mine = worlds.filter((w) => w.id !== demoWorld.id);
@@ -159,7 +204,14 @@ export default function Explore() {
                   <div style={{ marginTop: 4 }}><span className="pill cyan">⚑ story by {ownerLabel(w.ownerId)}</span></div>
                   <div className="muted" style={{ fontSize: 13 }}>{w.theme} · {w.difficulty} · {w.missions.length} missions · {w.clues.length} clues · {w.puzzles.length} puzzles</div>
                   <div className="dossier-meta">
-                    <Icon name="play" size={11} /> {plays[w.id] ?? 0} plays · <Icon name="book" size={11} /> {chapters} chapters
+                    <Icon name="play" size={11} /> {plays[w.id] ?? 0} plays ·{" "}
+                    {chapters > 0 ? (
+                      <button className="btn-ghost" style={{ padding: "0 8px", fontSize: 12 }} title="Read the continued chapters" onClick={() => setChaptersFor(w)}>
+                        <Icon name="book" size={11} /> {chapters} chapter{chapters === 1 ? "" : "s"}
+                      </button>
+                    ) : (
+                      <span><Icon name="book" size={11} /> 0 chapters</span>
+                    )}
                     {pending > 0 ? ` · ${pending} awaiting review` : ""} {w.id === world?.id ? "· active file" : ""}
                   </div>
                   <div className="row" style={{ marginTop: 4 }}>
@@ -172,6 +224,26 @@ export default function Explore() {
                 <button className="btn" onClick={() => enter(w)}><Icon name="play" /> Enter</button>
                 <button className="btn-ghost" onClick={() => fork(w.id)}><Icon name="fork" /> Fork</button>
                 <button className="btn-ghost" onClick={() => setExportFor(exportFor === w.id ? null : w.id)}>Carry</button>
+                {confirmDelete === w.id ? (
+                  <button
+                    className="btn"
+                    style={{ background: "linear-gradient(180deg, #ff5a5a, #b91c1c)", color: "#fff" }}
+                    onClick={() => { deleteWorld(w.id); setConfirmDelete(null); }}
+                  >
+                    Confirm?
+                  </button>
+                ) : (
+                  <button
+                    className="btn-ghost"
+                    title="Delete your copy only — shared tales stay for everyone"
+                    onClick={() => {
+                      setConfirmDelete(w.id);
+                      window.setTimeout(() => setConfirmDelete((v) => (v === w.id ? null : v)), 3000);
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
               {exported && (
                 <div style={{ marginTop: 8 }}>
@@ -184,6 +256,53 @@ export default function Explore() {
         })}
       </div>
       {feed.length === 0 && <p className="muted" style={{ marginTop: 12 }}>No tales match — loosen the search, or <Link to="/create">file a new expedition</Link>.</p>}
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <div>
+            <div className="case-kicker">◈ live from explorers · approved + shared</div>
+            <b>Every solver's tales — join and solve</b>
+            <div className="muted" style={{ fontSize: 13 }}>
+              {apiOn()
+                ? "Published tales pass full validation, then show here for all signed-in solvers."
+                : "Connect the API (VITE_API_URL + npm run dev:api) to see shared tales."}
+            </div>
+          </div>
+          {apiOn() && <button className="btn-ghost" disabled={remoteLoading} onClick={() => void loadRemote()}>Refresh</button>}
+        </div>
+        {remoteErr && <div style={{ color: "var(--red)", fontSize: 13, marginTop: 6 }}>{remoteErr}</div>}
+        {apiOn() && !remoteErr && (
+          <div className="grid" style={{ marginTop: 10 }}>
+            {remote.filter((m) => !worlds.some((w) => w.id === m.id) && m.id !== demoWorld.id).map((m) => (
+              <div className="card" key={m.id}>
+                <b>{m.name}</b>{" "}
+                <span className="stamp">shared</span>
+                <div style={{ marginTop: 4 }}><span className="pill cyan">⚑ story by {ownerLabel(m.ownerId ?? "")}</span></div>
+                <div className="muted" style={{ fontSize: 13 }}>
+                  {m.theme} · {m.difficulty} · {m.missions.length} missions · {m.clues.length} clues · {m.puzzles.length} puzzles
+                </div>
+                <div className="dossier-meta">{m.plays} plays · {m.solvers} solvers</div>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button className="btn" disabled={joiningId === m.id} onClick={() => void enterRemote(m)}>
+                    <Icon name="play" /> {joiningId === m.id ? "Joining…" : "Join + solve"}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {remoteLoading && <div className="muted">Listening for tales…</div>}
+            {!remoteLoading && remote.filter((m) => !worlds.some((w) => w.id === m.id) && m.id !== demoWorld.id).length === 0 && (
+              <div className="muted">No shared tales yet — publish one from the Planner.</div>
+            )}
+          </div>
+        )}
+      </div>
+      {chaptersFor && (
+        <ChaptersReaderModal
+          world={chaptersFor}
+          onClose={() => setChaptersFor(null)}
+          onOpenTale={() => { enter(chaptersFor); setChaptersFor(null); }}
+        />
+      )}
 
       <div style={{ marginTop: 16 }}>
         <Leaderboard worldId={(world ?? demoWorld).id} worldName={(world ?? demoWorld).name} />

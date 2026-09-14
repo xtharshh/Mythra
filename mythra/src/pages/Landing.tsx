@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import demo from "../data/demo-world.json";
 import type { World } from "../types";
-import { themeForWorld } from "../theme/theme";
 import { SupportButton } from "../components/Support";
 import { Icon } from "../components/icons";
 import type { IconName } from "../components/icons";
@@ -33,10 +32,8 @@ const LOGS: { kicker: string; icon: IconName; title: string; body: string; meta:
 ];
 
 export default function Landing() {
-  const theme = themeForWorld(world);
   return (
     <div className="layout">
-      <div className="case-kicker">Welcome to MYTHRA · incoming transmission · {theme.sol} · {theme.station}</div>
       <div className="row" style={{ alignItems: "flex-start", marginTop: 14 }}>
         <div style={{ flex: "1 1 420px" }}>
           <h1 className="case-title">The silent<br /><em>Mars colony.</em></h1>
@@ -55,7 +52,6 @@ export default function Landing() {
         </div>
         <div style={{ flex: "0 0 auto", textAlign: "center" }}>
           <div className="planet-sigil" role="img" aria-label="Mars" />
-          <div className="dossier-meta" style={{ marginTop: 8 }}>GRAV 3.7 · AIR THIN · DUST STORM</div>
         </div>
       </div>
 

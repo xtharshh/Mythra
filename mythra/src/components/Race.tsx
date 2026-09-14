@@ -90,7 +90,7 @@ export function RacePanel({ worldId, worldName, roomId, inviteLink, onInvite }: 
         </div>
       ) : (
         <div style={{ marginTop: 6 }}>
-          <label>Join link — send it, they land in this race</label>
+          <label>{inviteLink?.includes("?room=") ? "Short join link — fits anywhere, send it" : "Join link — send it, they land in this race"}</label>
           <div className="row">
             <input readOnly value={inviteLink ?? ""} onFocus={(e) => e.target.select()} style={{ flex: 1, fontSize: 11 }} />
             <button className="btn-ghost" style={{ padding: "2px 10px" }} onClick={() => void copy()}>{copied ? "Copied" : "Copy"}</button>

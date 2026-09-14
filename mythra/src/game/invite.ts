@@ -57,6 +57,21 @@ export function buildInviteLink(roomId: string, world: World): string {
   return `${base}/play?invite=${b64urlEncode(JSON.stringify(payload))}`;
 }
 
+/** Short join link: the tale lives on the API under the room, so the URL
+ *  stays pocket-sized (~40 chars) and survives every chat app. Needs the
+ *  API + a stored room snapshot (see POST /api/rooms). */
+export function buildShortInviteLink(roomId: string): string {
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+  return `${base}/play?room=${roomId}`;
+}
+
+/** Validate `?room=` (server ids are 6 hex chars). Throws readable errors. */
+export function parseRoomId(raw: string): string {
+  const id = (raw ?? "").trim().toLowerCase();
+  if (/^[0-9a-f]{6}$/.test(id)) return id;
+  throw new Error("That race link is corrupted — ask the host to resend it.");
+}
+
 /** Parse `?invite=` back. Throws human-readable errors. */
 export function parseInvite(raw: string): InvitePayload {
   let json: string;

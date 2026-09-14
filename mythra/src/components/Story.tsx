@@ -49,7 +49,8 @@ export function StoryIntro({ world, onBegin }: { world: World; onBegin: () => vo
   };
   return (
     <div className="veil">
-      <div className="intro-card card">
+      <div className="intro-card card" style={{ position: "relative" }}>
+        <button className="btn-ghost" style={{ position: "absolute", top: 22, right: 10, padding: "0 8px" }} title="Close briefing" onClick={onBegin}>✕</button>
         <div className="pill cyan">◉ incoming transmission</div>
         <h1 className="intro-title">{world.story.title}</h1>
         <p className="intro-text">{typed}<span className="caret" /></p>

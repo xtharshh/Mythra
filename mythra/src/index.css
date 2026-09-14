@@ -63,7 +63,8 @@ h1, h2, h3,
   filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.6));
 }
 .case-title em { font-style: normal; }
-#root { min-height: 100vh; }
+#root { min-height: 100vh; display: flex; flex-direction: column; }
+#root > footer { margin-top: auto; }
 a { color: var(--th-accent); text-decoration: none; }
 button, input, select, textarea { font: inherit; }
 
@@ -77,13 +78,24 @@ button, input, select, textarea { font: inherit; }
   font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
   text-transform: uppercase; letter-spacing: 1.5px; font-size: 12px;
 }
+.nav-brand { flex: none; font-size: 19px; letter-spacing: 1px; }
+.nav-center {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 14px; align-items: center;
+}
+.nav-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+@media (max-width: 900px) {
+  .nav { flex-wrap: wrap; }
+  .nav-center { position: static; transform: none; order: 3; width: 100%; justify-content: center; flex-wrap: wrap; }
+}
 .nav b { letter-spacing: 2px; color: var(--th-accent); display: inline-flex; gap: 8px; align-items: center; }
 .nav a { color: var(--muted); border: 1px solid transparent; padding: 4px 10px; border-radius: 6px; }
 .nav a:hover { color: var(--th-accent); border-color: var(--border); }
 .station-sol {
-  margin-left: auto; display: inline-flex; gap: 10px; align-items: center;
+  display: inline-flex; gap: 10px; align-items: center;
   color: var(--th-accent); border: 1px dashed var(--border-strong);
   padding: 3px 10px; border-radius: 6px; font-size: 11px;
+  white-space: nowrap;
 }
 .station-sol .blink { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: blink 1.2s steps(1) infinite; }
 
@@ -193,9 +205,31 @@ input, select, textarea {
   font-size: 14px;
 }
 label { font-size: 13px; font-weight: 600; color: var(--text); display: block; margin: 10px 0 4px; }
+
+/* ---- station scrollbars: every scroller wears mission brass ----
+   No OS-grey arrow bars anywhere: thin dark track, glowing amber thumb. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--th-accent) #150a06;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: #150a06; border-radius: 6px; }
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--th-accent), var(--th-accent2));
+  border-radius: 6px;
+  border: 2px solid #150a06;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #ffd9a8, var(--th-accent));
+  box-shadow: 0 0 10px rgba(255, 180, 94, 0.6);
+}
+*::-webkit-scrollbar-thumb:active { background: var(--th-accent2); }
+*::-webkit-scrollbar-corner { background: transparent; }
 .hud-panel { background: rgba(13, 7, 5, 0.92); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
 .modal-back { position: fixed; inset: 0; background: rgba(5, 2, 1, 0.72); display: flex; align-items: center; justify-content: center; z-index: 50; }
 .modal { width: min(520px, 92vw); }
+/* no popup ever outgrows the screen — tall forms scroll inside */
+.modal-back .modal { max-height: 88vh; overflow-y: auto; }
 .log { font-size: 12px; color: var(--muted); max-height: 140px; overflow: auto; font-family: ui-monospace, Menlo, monospace; }
 .log div { padding: 2px 0; border-bottom: 1px dashed rgba(255, 180, 94, 0.18); }
 :focus-visible { outline: 2px solid var(--th-accent); outline-offset: 2px; }
@@ -213,6 +247,21 @@ label { font-size: 13px; font-weight: 600; color: var(--text); display: block; m
 .intro-controls { margin-top: 10px; font-size: 13px; }
 .toast-stack { position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: 55; display: flex; flex-direction: column; gap: 8px; width: min(440px, 92vw); pointer-events: none; }
 .toast { border-color: var(--border-strong); }
+
+/* ---- cinematic tutorial: letterbox bars + glowing field-manual frame ---- */
+.cine-bar {
+  position: fixed; left: 0; right: 0; height: 8vh; min-height: 48px;
+  background: #000; z-index: 61; pointer-events: none;
+}
+.cine-bar.top { top: 0; border-bottom: 1px solid var(--border-strong); }
+.cine-bar.bottom { bottom: 0; border-top: 1px solid var(--border-strong); }
+.cine-frame {
+  border-color: var(--th-accent);
+  box-shadow: 0 0 60px rgba(255, 180, 94, 0.25), 0 12px 34px rgba(0, 0, 0, 0.55);
+}
+.cine-pips { display: flex; gap: 6px; margin-top: 12px; }
+.cine-pips i { width: 22px; height: 4px; border-radius: 2px; background: rgba(255, 180, 94, 0.25); }
+.cine-pips i.on { background: var(--th-accent); box-shadow: 0 0 8px rgba(255, 180, 94, 0.8); }
 .transmission { border-color: var(--amber); }
 .transmission h3 { margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 1px; }
 .eq { display: inline-flex; gap: 3px; align-items: flex-end; height: 18px; }
@@ -266,6 +315,16 @@ label { font-size: 13px; font-weight: 600; color: var(--text); display: block; m
   border-radius: 4px; padding: 8px 12px; font-size: 12px; pointer-events: none;
   font-family: ui-monospace, Menlo, monospace; letter-spacing: 1.5px;
 }
+/* live latency readout pinned to the viewport's top-right, above the suit chip */
+.ping-chip {
+  position: absolute; right: 12px; top: 12px; z-index: 5;
+  background: rgba(12, 6, 3, 0.85); border: 1px dashed var(--border-strong);
+  border-radius: 4px; padding: 6px 10px; font-size: 11px; pointer-events: none;
+  font-family: ui-monospace, Menlo, monospace; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--th-accent); display: inline-flex; gap: 8px; align-items: center;
+  white-space: nowrap;
+}
+.ping-chip .blink { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: blink 1.2s steps(1) infinite; }
 .controls-hint {
   position: absolute; left: 12px; bottom: 12px; color: var(--muted); font-size: 12px;
   background: rgba(0, 0, 0, 0.55); padding: 6px 10px; border-radius: 4px;
@@ -273,6 +332,6 @@ label { font-size: 13px; font-weight: 600; color: var(--text); display: block; m
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .eq i, .caret, .station-sol .blink { animation: none !important; }
+  .eq i, .caret, .station-sol .blink, .ping-chip .blink { animation: none !important; }
   .target-hud.th-pop { animation-duration: 0.01s !important; }
 }
