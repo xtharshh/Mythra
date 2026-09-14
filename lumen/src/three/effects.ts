@@ -8,6 +8,29 @@ export interface Updatable {
   dispose(): void;
 }
 
+/* ------------------------------------------------------------------ */
+/* Interact trigger: any UI path (E / click / button / voice) fires    */
+/* `triggerObject(id)`; LumenScene listens and plays a pop + shockwave  */
+/* ring + light flash on that object so the hit reads instantly.        */
+/* ------------------------------------------------------------------ */
+export const TRIGGER_EVENT = "storyforge:trigger";
+export const TRIGGER_POP_SEC = 0.55;
+
+/** Scale multiplier for a trigger pop at `age` seconds. Pure — tested. */
+export function triggerScale(age: number): number {
+  if (!(age >= 0) || age > TRIGGER_POP_SEC) return 1;
+  return 1 + 0.18 * Math.sin((Math.PI * age) / TRIGGER_POP_SEC);
+}
+
+/** Broadcast an interaction hit; LumenScene animates the object. No-op headless. */
+export function triggerObject(objectId: string): void {
+  try {
+    window.dispatchEvent(new CustomEvent(TRIGGER_EVENT, { detail: { id: objectId } }));
+  } catch {
+    /* ignore */
+  }
+}
+
 function rand(seed: { v: number }): number {
   seed.v = (seed.v * 16807) % 2147483647;
   return seed.v / 2147483647;

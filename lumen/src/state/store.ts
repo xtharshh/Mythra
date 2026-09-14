@@ -63,6 +63,13 @@ interface LumenStore {
   createCheckpoint: (label: string, kind?: CheckpointKind) => void;
   restoreCheckpoint: (id: string) => void;
   deleteCheckpoint: (id: string) => void;
+  plays: Record<string, number>;
+  ratings: Record<string, { total: number; count: number; mine?: number }>;
+  loadSocial: () => void;
+  recordPlay: (worldId: string) => void;
+  rateWorld: (worldId: string, stars: number) => void;
+  publishWorld: () => void;
+  unpublishWorld: () => void;
   movePlayer: (p: [number, number, number]) => void;
   pushLog: (msg: string) => void;
   save: () => void;
@@ -100,8 +107,10 @@ export const useLumen = create<LumenStore>((set, get) => ({
   notes: {},
   voiceNotes: [],
   checkpoints: [],
+  plays: {},
+  ratings: {},
   playerPos: [0, 1.7, 6],
-  log: ["Welcome to LUMEN."],
+  log: ["Welcome to MYTHRA."],
 
   setWorld: (world) => set({ world }),
   addWorld: (w) => {
@@ -236,7 +245,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
       get().pushLog("Progress restored.");
     } catch { /* ignore */ }
   },
-  reset: () => set({ inventory: {}, discoveredClues: [], completedMissions: [], activeMissions: [], solvedPuzzles: [], inspectedObjects: [], reachedLocations: ["loc_landing"], flags: {}, notes: {}, playerPos: [0, 1.7, 6], log: ["Welcome to LUMEN.", "World reset."] }),
+  reset: () => set({ inventory: {}, discoveredClues: [], completedMissions: [], activeMissions: [], solvedPuzzles: [], inspectedObjects: [], reachedLocations: ["loc_landing"], flags: {}, notes: {}, playerPos: [0, 1.7, 6], log: ["Welcome to MYTHRA.", "World reset."] }),
 
   persistLibrary: () => {
     const s = get();
@@ -316,5 +325,53 @@ export const useLumen = create<LumenStore>((set, get) => ({
       localStorage.setItem(checkpointKey(cp.owner, cp.worldId), JSON.stringify(next));
     } catch { /* ignore */ }
     get().pushLog(`Deleted checkpoint: ${cp.label}`);
+  },
+
+  loadSocial: () => {
+    try {
+      const plays = JSON.parse(localStorage.getItem("lumen-plays-v1") ?? "{}") as Record<string, number>;
+      const ratings = JSON.parse(localStorage.getItem("lumen-ratings-v1") ?? "{}") as LumenStore["ratings"];
+      set({
+        plays: plays && typeof plays === "object" ? plays : {},
+        ratings: ratings && typeof ratings === "object" ? ratings : {},
+      });
+    } catch {
+      /* ignore corrupt */
+    }
+  },
+  recordPlay: (worldId) => {
+    set((s) => {
+      const plays = { ...s.plays, [worldId]: (s.plays[worldId] ?? 0) + 1 };
+      try {
+        localStorage.setItem("lumen-plays-v1", JSON.stringify(plays));
+      } catch { /* ignore */ }
+      return { plays };
+    });
+  },
+  rateWorld: (worldId, stars) => {
+    const clipped = Math.min(5, Math.max(1, Math.round(stars)));
+    set((s) => {
+      const prev = s.ratings[worldId] ?? { total: 0, count: 0 };
+      const total = prev.total - (prev.mine ?? 0) + clipped;
+      const count = prev.mine === undefined ? prev.count + 1 : prev.count;
+      const ratings = { ...s.ratings, [worldId]: { total, count, mine: clipped } };
+      try {
+        localStorage.setItem("lumen-ratings-v1", JSON.stringify(ratings));
+      } catch { /* ignore */ }
+      return { ratings };
+    });
+    get().pushLog(`Rated ${clipped}/5.`);
+  },
+  publishWorld: () => {
+    const w = get().world;
+    if (!w) return;
+    get().updateWorld({ ...w, status: "published", updatedAt: new Date().toISOString() });
+    get().pushLog(`Published: ${w.name} — visible to every solver in the Archive.`);
+  },
+  unpublishWorld: () => {
+    const w = get().world;
+    if (!w) return;
+    get().updateWorld({ ...w, status: "draft", updatedAt: new Date().toISOString() });
+    get().pushLog(`Unpublished: ${w.name} — back to draft.`);
   },
 }));

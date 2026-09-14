@@ -126,10 +126,11 @@ export default function HeroScene() {
     };
     window.addEventListener("resize", onResize);
 
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     let raf = 0;
     const render = () => {
-      const t = clock.getElapsedTime();
+      timer.update();
+      const t = timer.getElapsed();
       mars.rotation.y = t * 0.06;
       const a = t * 0.25;
       orbiter.position.set(

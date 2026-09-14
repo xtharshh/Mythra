@@ -9,7 +9,7 @@ export default function Landing() {
   const theme = themeForWorld(world);
   return (
     <div className="layout">
-      <div className="case-kicker">Welcome to LUMEN.</div>
+      <div className="case-kicker">Welcome to MYTHRA.</div>
       <div className="case-kicker" style={{ marginTop: 4 }}>◉ incoming transmission · {theme.sol} · {theme.station}</div>
       <div className="row" style={{ alignItems: "flex-start", marginTop: 14 }}>
         <div style={{ flex: "1 1 420px" }}>

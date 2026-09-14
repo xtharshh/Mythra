@@ -14,7 +14,7 @@ export interface VoiceSettings {
 const LS_KEY = "lumen-voice-v1";
 
 const DEFAULTS: VoiceSettings = {
-  enabled: false,
+  enabled: isTtsSupported(),
   autoNarrate: true,
   rate: 1,
   pitch: 0.9,
@@ -74,16 +74,42 @@ export function speak(text: string, settings: VoiceSettings): boolean {
   const clean = text.trim().slice(0, 600);
   if (!clean) return false;
   try {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(clean);
-    const voice = pickVoice(settings.voiceURI);
-    if (voice) utter.voice = voice;
-    utter.rate = Math.min(2, Math.max(0.5, settings.rate));
-    utter.pitch = Math.min(2, Math.max(0, settings.pitch));
-    window.speechSynthesis.speak(utter);
+    const synth = window.speechSynthesis;
+    const say = () => {
+      try {
+        const utter = new SpeechSynthesisUtterance(clean);
+        const voice = pickVoice(settings.voiceURI);
+        if (voice) utter.voice = voice;
+        utter.rate = Math.min(2, Math.max(0.5, settings.rate));
+        utter.pitch = Math.min(2, Math.max(0, settings.pitch));
+        synth.speak(utter);
+      } catch {
+        /* ignore */
+      }
+    };
+    if (synth.speaking || synth.pending) {
+      // Chrome drops speak() issued in the same tick as cancel() — defer past it
+      synth.cancel();
+      window.setTimeout(say, 70);
+    } else {
+      say();
+    }
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Warm the voice list (browsers load voices async). Call on app start. */
+export function warmVoices(): void {
+  try {
+    if (!isTtsSupported()) return;
+    getAvailableVoices();
+    window.speechSynthesis.onvoiceschanged = () => {
+      getAvailableVoices();
+    };
+  } catch {
+    /* ignore */
   }
 }
 

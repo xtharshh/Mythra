@@ -5,7 +5,7 @@ import { ApprovalQueue, VersionsPanel } from "../components/Community";
 
 // Creator Studio as mission control (§17): console tabs, validation stamp, test bench.
 export default function Studio() {
-  const { world, updateWorld, pushLog } = useLumen();
+  const { world, updateWorld, pushLog, publishWorld, unpublishWorld } = useLumen();
   const [tab, setTab] = useState<"missions" | "clues" | "story" | "versions" | "validate" | "test">("missions");
   const report = useMemo(() => (world ? validateWorld(world) : null), [world]);
   if (!world) return <div className="layout"><div className="case-kicker">◈ mission control · offline</div><h2 className="case-title" style={{ fontSize: 34 }}>No file <em>loaded.</em></h2><p className="muted">Open the <a href="/play">Mars demo</a> or <a href="/create">file an expedition</a> first.</p></div>;
@@ -59,8 +59,14 @@ export default function Studio() {
       {tab === "versions" && <VersionsPanel world={world} />}
       {tab === "validate" && report && (
         <div className="console" style={{ marginTop: 12 }}>
-          <div className="console-bar">Publish stamp · {report.valid ? "✔ VALID" : "⛔ INVALID"}</div>
+          <div className="console-bar">Publish stamp · {report.valid ? "VALID" : "INVALID"}</div>
           <div className="console-body">
+            <div className="row" style={{ marginBottom: 8 }}>
+              <span className="stamp">{world.status === "published" ? "open to solvers" : "draft"}</span>
+              {world.status === "published"
+                ? <button className="btn-ghost" onClick={() => { unpublishWorld(); }}>Unpublish</button>
+                : <button className="btn" disabled={!report.valid} title={report.valid ? "List this tale in the Archive for every solver" : "Fix validation errors first"} onClick={() => { publishWorld(); }}>Publish to Archive</button>}
+            </div>
             <div className="dossier-meta">{report.missionCount} missions · {report.clueCount} clues · {report.puzzleCount} puzzles · est. {report.estimatedMinutes} min · {report.reachableLocations}/{report.reachableLocations + report.unreachableLocations} reachable</div>
             {report.errors.map((e, i) => <div key={i} style={{ color: "var(--red)", fontSize: 13 }}>⛔ {e.code}: {e.message}</div>)}
             {report.warnings.map((e, i) => <div key={i} style={{ color: "var(--amber)", fontSize: 13 }}>⚠ {e.code}: {e.message}</div>)}

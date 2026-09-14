@@ -28,7 +28,7 @@ export default function App() {
   return (
     <Router>
       <nav className="nav">
-        <b>LUMEN · {theme.station}</b>
+        <b>MYTHRA · {theme.station}</b>
         <Link to="/">Dossier</Link>
         <Link to="/explore">Archive</Link>
         <Link to="/play">Surface</Link>
@@ -38,7 +38,7 @@ export default function App() {
         <span className="station-sol"><span className="blink" />{theme.sol} · {theme.tagline}</span>
       </nav>
       <div className="ticker" aria-hidden>
-        <span>Welcome to LUMEN</span>
+        <span>Welcome to MYTHRA</span>
         {theme.ticker.map((t) => <span key={t}>{t}</span>)}
       </div>
       <Routes>

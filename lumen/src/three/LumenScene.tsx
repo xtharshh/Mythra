@@ -14,14 +14,20 @@ import {
   Orbiter,
   ParticleColumn,
   ScanBar,
+  TRIGGER_EVENT,
+  TRIGGER_POP_SEC,
   WindRush,
   createSky,
   scatterCraters,
   scatterRocks,
+  triggerScale,
 } from "./effects";
 import type { Updatable } from "./effects";
 import { createObjectMesh } from "./factory";
 import type { TickFn } from "./factory";
+import { BINDS_EVENT } from "../components/Controls";
+import { isDown, loadBinds, prettyCode } from "../game/controls";
+import type { Binds } from "../game/controls";
 
 interface Props {
   world: World;
@@ -38,6 +44,8 @@ interface Props {
 const GROUND_Y = 1.7;
 const FLY_MIN = 1.2;
 const FLY_MAX = 45;
+const JUMP_V = 5.6;
+const GRAVITY = 13.5;
 
 function turnTo(obj: THREE.Object3D, target: number, dt: number): void {
   let d = target - obj.rotation.y;
@@ -78,6 +86,13 @@ function firstStd(root: THREE.Object3D): THREE.MeshStandardMaterial | null {
   return out;
 }
 
+/** Controls hint bar that mirrors the player's own bindings. */
+function hintHTML(b: Binds): string {
+  const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  const k = (a: keyof Binds) => `<span class="key sm">${esc(prettyCode(b[a][0]))}</span>`;
+  return `WASD move · drag look · ${k("interact")} interact · Shift sprint · ${k("flyToggle")} fly · ${k("flyUp")}/${k("flyDown")} up/down · Space jump`;
+}
+
 export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({
@@ -88,7 +103,11 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     interactObj: null as WorldObject | null,
     lastLocCheck: 0,
     lastTargetId: null as string | null,
+    lastPromptId: null as string | null,
+    vy: 0,
+    grounded: true,
   });
+  const bindsRef = useRef(loadBinds());
   const callbacks = useRef({ onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange });
   callbacks.current = { onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange };
   const flags = useRef({ flyMode, hasSuit });
@@ -99,6 +118,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
   const promptRef = useRef<HTMLDivElement>(null);
   const flightRef = useRef<HTMLDivElement>(null);
   const altRef = useRef<HTMLSpanElement>(null);
+  const hintRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -118,7 +138,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     mount.appendChild(renderer.domElement);
 
     // --- sky dome, sun glow, stars, moon + orbiting satellite
@@ -226,6 +246,36 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     };
     rebuild();
 
+    // --- interact trigger FX: scale pop + shockwave ring + light flash,
+    // --- so the exact object you hit visibly answers back.
+    const pulses: { root: THREE.Object3D; base: THREE.Vector3; startMs: number }[] = [];
+    const rings: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; startMs: number }[] = [];
+    const flash = new THREE.PointLight(0xffb45e, 0, 22, 1.8);
+    scene.add(flash);
+    const fireTrigger = (id: string) => {
+      const root = meshes.get(id);
+      if (!root) return;
+      const wp = new THREE.Vector3();
+      root.getWorldPosition(wp);
+      pulses.push({ root, base: root.scale.clone(), startMs: performance.now() });
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffb45e, transparent: true, opacity: 0.85,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.68, 40), mat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(wp.x, 0.08, wp.z);
+      scene.add(ring);
+      rings.push({ mesh: ring, mat, startMs: performance.now() });
+      flash.position.set(wp.x, wp.y + 1.6, wp.z);
+      flash.intensity = 30;
+    };
+    const onTrigger = (e: Event) => {
+      const id = (e as CustomEvent).detail?.id;
+      if (typeof id === "string") fireTrigger(id);
+    };
+    window.addEventListener(TRIGGER_EVENT, onTrigger);
+
     const objPos = (id: string): THREE.Vector3 | null => {
       const o = W.objects.find((x) => x.id === id);
       return o ? new THREE.Vector3(o.position[0], o.position[1], o.position[2]) : null;
@@ -322,6 +372,11 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     const center = new THREE.Vector2(0, 0);
     let glowRoot: THREE.Object3D | null = null;
 
+    const onReloadBinds = () => {
+      bindsRef.current = loadBinds();
+      if (hintRef.current) hintRef.current.innerHTML = hintHTML(bindsRef.current);
+    };
+    window.addEventListener(BINDS_EVENT, onReloadBinds);
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space") e.preventDefault();
       // don't hijack typing in inputs / modals
@@ -329,11 +384,20 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
         if (e.code !== "Escape") return;
       }
+      // Space must never re-trigger a focused button instead of the game
+      const el = e.target as HTMLElement | null;
+      if (el?.tagName === "BUTTON") el.blur();
       st.keys.add(e.code);
-      const isInteract = e.code === "KeyE" || e.key === "e" || e.key === "E";
+      const B = bindsRef.current;
+      const flyingNow = flags.current.flyMode && flags.current.hasSuit;
+      if (isDown("flyToggle", st.keys, B) && !e.repeat) callbacks.current.onToggleFlyRequest();
+      const interactKey = isDown("interact", st.keys, B) || e.key === "e" || e.key === "E";
       // ignore key-repeat for interact so holding E can't silently multi-fire
-      if (isInteract && !e.repeat && st.interactObj) callbacks.current.onInteractRequest(st.interactObj);
-      if (e.code === "KeyF") callbacks.current.onToggleFlyRequest();
+      if (interactKey && !e.repeat && st.interactObj) callbacks.current.onInteractRequest(st.interactObj);
+      if (isDown("jump", st.keys, B) && !e.repeat && !flyingNow && st.grounded) {
+        st.vy = JUMP_V;
+        st.grounded = false;
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => st.keys.delete(e.code);
     window.addEventListener("keydown", onKeyDown);
@@ -369,42 +433,64 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     };
     window.addEventListener("resize", onResize);
 
-    const clock = new THREE.Clock();
+    const clock = new THREE.Timer();
     let raf = 0;
     const bounds = () => worldRef.current.settings.worldBounds;
     const animate = () => {
       raf = requestAnimationFrame(animate);
+      clock.update();
       const dt = Math.min(clock.getDelta(), 0.05);
-      const t = clock.elapsedTime;
+      const t = clock.getElapsed();
+      const B = bindsRef.current;
       const flying = flags.current.flyMode && flags.current.hasSuit;
-      const sprinting = st.keys.has("ShiftLeft") || st.keys.has("ShiftRight");
+      const sprinting = isDown("sprint", st.keys, B);
       const speed = flying ? (sprinting && worldRef.current.settings.sprintEnabled ? 14 : 8) : (sprinting && worldRef.current.settings.sprintEnabled ? 9 : 4.5);
       const fwd = new THREE.Vector3(-Math.sin(st.yaw), 0, -Math.cos(st.yaw));
       const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
       const move = new THREE.Vector3();
-      if (st.keys.has("KeyW")) move.add(fwd);
-      if (st.keys.has("KeyS")) move.sub(fwd);
-      if (st.keys.has("KeyA")) move.sub(right);
-      if (st.keys.has("KeyD")) move.add(right);
+      if (isDown("forward", st.keys, B)) move.add(fwd);
+      if (isDown("back", st.keys, B)) move.sub(fwd);
+      if (isDown("left", st.keys, B)) move.sub(right);
+      if (isDown("right", st.keys, B)) move.add(right);
       let vertical = 0;
       if (flying) {
-        if (st.keys.has("Space")) vertical += 1;
-        if (st.keys.has("KeyC") || st.keys.has("ControlLeft")) vertical -= 1;
+        if (isDown("flyUp", st.keys, B)) vertical += 1;
+        if (isDown("flyDown", st.keys, B)) vertical -= 1;
       }
       const moving = move.lengthSq() > 0 || vertical !== 0;
       if (moving) {
         if (move.lengthSq() > 0) move.normalize().multiplyScalar(speed * dt);
-        move.y = vertical * (sprinting ? 9 : 6) * dt;
+        move.y = vertical * (sprinting ? 10 : 7) * dt;
         st.pos.add(move);
         const b = bounds();
         st.pos.x = Math.max(-b, Math.min(b, st.pos.x));
         st.pos.z = Math.max(-b, Math.min(b, st.pos.z));
-        st.pos.y = flying ? Math.max(FLY_MIN, Math.min(FLY_MAX, st.pos.y)) : GROUND_Y;
+        st.pos.y = flying ? Math.max(FLY_MIN, Math.min(FLY_MAX, st.pos.y)) : st.pos.y;
         callbacks.current.onPositionChange([st.pos.x, st.pos.y, st.pos.z]);
       }
-      if (!flying && st.pos.y > GROUND_Y) {
-        st.pos.y = Math.max(GROUND_Y, st.pos.y - 6 * dt);
-        callbacks.current.onPositionChange([st.pos.x, st.pos.y, st.pos.z]);
+      if (!flying) {
+        if (st.grounded) {
+          if (st.pos.y > GROUND_Y) {
+            // suit just cut out mid-air (or a shove): fall, don't snap
+            st.grounded = false;
+            st.vy = 0;
+          } else if (st.pos.y < GROUND_Y) {
+            st.pos.y = GROUND_Y;
+          }
+        }
+        if (!st.grounded) {
+          st.vy -= GRAVITY * dt;
+          st.pos.y += st.vy * dt;
+          if (st.pos.y <= GROUND_Y) {
+            st.pos.y = GROUND_Y;
+            st.vy = 0;
+            st.grounded = true;
+          }
+          callbacks.current.onPositionChange([st.pos.x, st.pos.y, st.pos.z]);
+        }
+      } else {
+        st.grounded = st.pos.y <= GROUND_Y + 0.01;
+        if (st.grounded) st.vy = 0;
       }
       camera.position.copy(st.pos);
       camera.rotation.set(0, 0, 0);
@@ -426,6 +512,36 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       for (let i = 0; i < beaconMats.length; i++) beaconMats[i].opacity = 0.35 + 0.2 * Math.sin(t * 2 + i);
       for (const gl of glints) gl.mat.emissiveIntensity = 0.25 + 0.22 * (0.5 + 0.5 * Math.sin(t * 3 + gl.phase));
       for (const tr of trackers) tr.mesh.rotation.y = tr.base + Math.sin(t * 0.08) * 0.5;
+
+      // --- trigger pops + shockwave rings + flash decay
+      {
+        const nowMs = performance.now();
+        for (let i = pulses.length - 1; i >= 0; i--) {
+          const p = pulses[i];
+          const age = (nowMs - p.startMs) / 1000;
+          if (age > TRIGGER_POP_SEC + 0.05) {
+            p.root.scale.copy(p.base);
+            pulses.splice(i, 1);
+            continue;
+          }
+          p.root.scale.copy(p.base).multiplyScalar(triggerScale(age));
+        }
+        for (let i = rings.length - 1; i >= 0; i--) {
+          const r = rings[i];
+          const age = (nowMs - r.startMs) / 1000;
+          if (age > 0.8) {
+            scene.remove(r.mesh);
+            r.mesh.geometry.dispose();
+            r.mat.dispose();
+            rings.splice(i, 1);
+            continue;
+          }
+          const s = 0.6 + age * 3.2;
+          r.mesh.scale.set(s, s, s);
+          r.mat.opacity = 0.85 * (1 - age / 0.8);
+        }
+        if (flash.intensity > 0) flash.intensity = Math.max(0, flash.intensity - dt * 90);
+      }
 
       // --- astronaut patrol + greet
       {
@@ -466,10 +582,6 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
           const root = meshes.get(obj.id);
           if (root) { setGlow(root, 0.9); glowRoot = root; }
         }
-        if (promptRef.current) {
-          promptRef.current.style.display = "block";
-          promptRef.current.textContent = `${obj?.interaction?.prompt ?? `Inspect ${obj?.name ?? ""}`} [E / click]`;
-        }
       } else {
         // generous proximity fallback so small ground items (scrap/drone) still prompt
         let best: WorldObject | null = null; let bestD = 4.5;
@@ -478,13 +590,31 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
           if (d < bestD) { bestD = d; best = o; }
         }
         st.interactObj = best;
-        if (promptRef.current) {
-          if (best) {
-            promptRef.current.style.display = "block";
-            promptRef.current.textContent = `${best.interaction?.prompt ?? "Inspect " + best.name} [E / click]`;
-            const root = meshes.get(best.id);
-            if (root) { setGlow(root, 0.9); glowRoot = root; }
-          } else promptRef.current.style.display = "none";
+        if (best) {
+          const root = meshes.get(best.id);
+          if (root) { setGlow(root, 0.9); glowRoot = root; }
+        }
+      }
+      // gaming target popup — DOM updates only on target change, pop replays
+      {
+        const obj = st.interactObj;
+        const pid = obj ? `t:${obj.id}` : null;
+        if (pid !== st.lastPromptId) {
+          st.lastPromptId = pid;
+          const el = promptRef.current;
+          if (el) {
+            if (!obj) {
+              el.style.display = "none";
+            } else {
+              el.style.display = "block";
+              const name = obj.name.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+              const prompt = (obj.interaction?.prompt ?? `Inspect ${obj.name}`).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+              el.innerHTML = `<span class="th-name">${name}</span><span class="th-prompt">${prompt}</span><span class="key">E</span>`;
+              el.classList.remove("th-pop");
+              void el.offsetWidth;
+              el.classList.add("th-pop");
+            }
+          }
         }
       }
       // voice-command target mirror (Play mic says "collect" -> uses this)
@@ -516,11 +646,18 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
 
     return () => {
       cancelAnimationFrame(raf);
+      window.removeEventListener(TRIGGER_EVENT, onTrigger);
+      window.removeEventListener(BINDS_EVENT, onReloadBinds);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("resize", onResize);
+      for (const r of rings) {
+        scene.remove(r.mesh);
+        r.mesh.geometry.dispose();
+        r.mat.dispose();
+      }
       for (const e of effects) e.dispose();
       rush.dispose();
       rocks.dispose();
@@ -543,14 +680,12 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
 
   return (
     <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative", cursor: "crosshair" }}>
-      <div style={{ position: "absolute", left: "50%", top: "50%", width: 8, height: 8, marginLeft: -4, marginTop: -4, borderRadius: "50%", background: "#22d3ee", opacity: 0.9, pointerEvents: "none" }} />
-      <div ref={promptRef} style={{ position: "absolute", left: "50%", bottom: 90, transform: "translateX(-50%)", display: "none", background: "rgba(10,10,25,.85)", border: "1px solid #22d3ee", color: "#e2e8f0", padding: "8px 14px", borderRadius: 8, fontSize: 14, pointerEvents: "none" }} />
-      <div ref={flightRef} style={{ display: "none", position: "absolute", right: 12, top: 12, background: "rgba(8,20,30,.8)", border: "1px solid #22d3ee", borderRadius: 10, padding: "8px 12px", fontSize: 13, pointerEvents: "none" }}>
-        🛰️ suit <span ref={altRef} style={{ color: "#22d3ee", fontWeight: 700 }}>grounded</span>
+      <div className="reticle" />
+      <div ref={promptRef} className="target-hud" style={{ display: "none" }} />
+      <div ref={flightRef} className="suit-chip" style={{ display: "none" }}>
+        SUIT <span ref={altRef} style={{ color: "var(--th-accent)", fontWeight: 700 }}>grounded</span>
       </div>
-      <div style={{ position: "absolute", left: 12, bottom: 12, color: "#94a3b8", fontSize: 12, background: "rgba(0,0,0,.5)", padding: "6px 10px", borderRadius: 6 }}>
-        WASD move · drag mouse to look · E interact · Shift sprint · F fly · Space/C up/down
-      </div>
+      <div ref={hintRef} className="controls-hint" dangerouslySetInnerHTML={{ __html: hintHTML(loadBinds()) }} />
     </div>
   );
 }

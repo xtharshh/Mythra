@@ -13,9 +13,11 @@ import { CheckpointPanel } from "../components/Checkpoints";
 import { VoiceLibrary, VoiceNotes } from "../components/VoiceNotes";
 import {
   isTtsSupported, isVoiceInputSupported, loadVoiceSettings, parseVoiceCommand,
-  saveVoiceSettings, speak, startListening, stopSpeaking,
+  saveVoiceSettings, speak, startListening, stopSpeaking, warmVoices,
 } from "../audio/voice";
+import { triggerObject } from "../three/effects";
 import type { VoiceSettings } from "../audio/voice";
+import { ControlsModal } from "../components/Controls";
 
 export default function Play() {
   const s = useLumen();
@@ -29,6 +31,7 @@ export default function Play() {
   const [voice, setVoice] = useState<VoiceSettings>(() => loadVoiceSettings());
   const [listening, setListening] = useState(false);
   const [target, setTarget] = useState<WorldObject | null>(null);
+  const [showControls, setShowControls] = useState(false);
   const stopListenRef = useRef<(() => void) | null>(null);
   const shownBeats = useRef(new Set<string>());
   const toastId = useRef(0);
@@ -136,11 +139,21 @@ export default function Play() {
     useLumen.getState().loadCheckpoints();
   }, [s.world?.id]);
 
+  // warm TTS voices once so narration has sound from the first beat
+  useEffect(() => { warmVoices(); }, []);
+
+  // every entry counts as a play for the Archive feed
+  useEffect(() => {
+    if (s.world?.id) useLumen.getState().recordPlay(s.world.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.world?.id]);
+
   const world = s.world ?? (structuredClone(demo) as unknown as World);
   const report = useMemo(() => validateWorld(world), [world]);
   const puzzle = world.puzzles.find((p) => p.id === puzzleId) ?? null;
 
   const interact = (obj: WorldObject) => {
+    triggerObject(obj.id); // scene plays pop + ring + flash on the hit object
     const store = useLumen.getState();
     const gs = store.gameState();
     store.inspectObject(obj.id);
@@ -260,6 +273,7 @@ export default function Play() {
         </button>
         <button className="btn-ghost" onClick={() => s.save()}>Save</button>
         <button className="btn-ghost" onClick={() => s.load()}>Load</button>
+        <button className="btn-ghost" title="Remap every action to your own keys" onClick={() => setShowControls(true)}>Controls</button>
         <button className="btn-ghost" onClick={() => s.reset()}>Reset</button>
       </div>
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
@@ -294,6 +308,7 @@ export default function Play() {
         </div>
       </div>
       {puzzle && <PuzzleModal puzzle={puzzle} onClose={() => { setPuzzleId(null); setTimeout(checkMissions, 50); }} />}
+      {showControls && <ControlsModal onClose={() => setShowControls(false)} />}
       {showContribute && <ContributeModal world={world} onClose={() => setShowContribute(false)} />}
       {introOpen && <StoryIntro world={world} onBegin={beginIntro} />}
       <Toasts toasts={toasts} />

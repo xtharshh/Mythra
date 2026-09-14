@@ -173,7 +173,8 @@ function buildHatch(g: THREE.Group, add: (t: TickFn) => void): void {
   g.add(BOX(0.25, 2.3, 0.3, dark, -0.95, 1.15, 0));
   g.add(BOX(0.25, 2.3, 0.3, dark, 0.95, 1.15, 0));
   g.add(BOX(2.15, 0.3, 0.3, dark, 0, 2.42, 0));
-  g.add(BOX(1.7, 2.1, 0.14, hull, 0, 1.1, 0));
+  const door = BOX(1.7, 2.1, 0.14, hull, 0, 1.1, 0);
+  g.add(door);
   for (const y of [0.5, 1.1, 1.7]) g.add(BOX(1.7, 0.08, 0.04, frame, 0, y, 0.09));
   const ring = part(new THREE.TorusGeometry(0.28, 0.05, 10, 24), frame, 0, 1.55, 0.09);
   const portGlass = part(new THREE.CircleGeometry(0.26, 24), glass, 0, 1.55, 0.085);
@@ -192,6 +193,11 @@ function buildHatch(g: THREE.Group, add: (t: TickFn) => void): void {
   for (const x of [-0.82, 0.82]) g.add(BOX(0.08, 2.1, 0.02, lampA, x, 1.1, 0.1));
   const lampMat = top.material as THREE.MeshBasicMaterial;
   add((t) => lampMat.color.setHex(Math.sin(t * 5) > 0 ? 0xff3333 : 0x440000));
+  // correct sealed-hatch behavior: pressure rattle — rare, brief shudder
+  add((t) => {
+    const k = Math.pow(Math.max(0, Math.sin(t * 0.45 + 1.2)), 24);
+    door.position.z = 0.12 + (k > 0 ? (Math.sin(t * 61) * 0.008) : 0);
+  });
 }
 
 function buildBeacon(g: THREE.Group, add: (t: TickFn) => void): void {
@@ -212,9 +218,21 @@ function buildBeacon(g: THREE.Group, add: (t: TickFn) => void): void {
   }
   const tipMat = tip.material as THREE.MeshBasicMaterial;
   add((t) => tipMat.color.setHex(Math.sin(t * 4) > 0 ? 0xff3333 : 0x440000));
+  // correct beacon behavior: rotating double sweep, like a real airfield beacon
+  const sweep = new THREE.Group();
+  sweep.position.y = 2.7;
+  for (const a of [0, Math.PI]) {
+    const blade = BOX(0.85, 0.05, 0.12, lampC, Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5);
+    blade.rotation.y = -a;
+    sweep.add(blade);
+  }
+  g.add(sweep);
+  add((_t, dt) => {
+    sweep.rotation.y += (dt ?? 0.016) * 2.4;
+  });
 }
 
-function buildDrone(g: THREE.Group, id: string): void {
+function buildDrone(g: THREE.Group, id: string, add: (t: TickFn) => void): void {
   const tilt = new THREE.Group();
   tilt.rotation.z = 0.14;
   tilt.rotation.x = -0.08;
@@ -223,6 +241,9 @@ function buildDrone(g: THREE.Group, id: string): void {
   tilt.add(body);
   tilt.add(BOX(0.5, 0.18, 0.4, rust, 0, 0.32, 0));
   const ends: [number, number][] = [[0.75, 0.75], [-0.75, 0.75], [0.75, -0.75], [-0.75, -0.75]];
+  // correct broken-drone behavior: surviving rotors cough in short spin-up bursts,
+  // the snapped arm (i===3) and bent rotor (i===1) never move.
+  const spinners: { m: THREE.Mesh; phase: number }[] = [];
   ends.forEach(([x, z], i) => {
     if (i === 3) {
       tilt.add(strut(new THREE.Vector3(0, 0.5, 0), new THREE.Vector3(x * 0.5, 0.42, z * 0.5), 0.045, frame));
@@ -232,15 +253,22 @@ function buildDrone(g: THREE.Group, id: string): void {
     tilt.add(CYL(0.09, 0.11, 0.14, dark, x, 0.66, z, 10));
     const rotor = CYL(0.34, 0.34, 0.02, rubber, x, 0.76, z, 16);
     if (i === 1) { rotor.rotation.z = 0.5; rotor.position.y = 0.5; }
+    else spinners.push({ m: rotor, phase: i * 2.1 });
     tilt.add(rotor);
   });
   tilt.add(SPH(0.07, lampR, 0, 0.52, 0.44, 8, 6));
   tilt.add(BOX(0.7, 0.08, 0.12, dark, 0, 0.12, 0.2));
   g.add(tilt);
+  add((t, dt) => {
+    for (const s of spinners) {
+      const gate = Math.pow(Math.max(0, Math.sin(t * 0.6 + s.phase)), 8);
+      s.m.rotation.y += (dt ?? 0.016) * 34 * gate;
+    }
+  });
   void id;
 }
 
-function buildLocker(g: THREE.Group): void {
+function buildLocker(g: THREE.Group, add: (t: TickFn) => void): void {
   g.add(BOX(1.0, 2.0, 0.8, hull, 0, 1.0, 0));
   g.add(BOX(0.9, 1.9, 0.06, dark, 0, 1.0, 0.38));
   const pane = BOX(0.62, 1.45, 0.03, paneGlass, 0, 1.02, 0.4);
@@ -251,6 +279,11 @@ function buildLocker(g: THREE.Group): void {
   g.add(BOX(0.7, 0.12, 0.04, lampC, 0, 1.88, 0.4));
   for (let i = 0; i < 3; i++) g.add(BOX(0.04, 0.3, 0.5, dark, -0.52, 0.6 + i * 0.4, 0));
   g.add(BOX(1.1, 0.1, 0.9, dark, 0, 0.05, 0));
+  // correct locker behavior: charge LED breathes while the suit sits ready
+  const charge = BOX(0.5, 0.05, 0.03, new THREE.MeshBasicMaterial({ color: 0x22ff88 }), -0.1, 1.68, 0.42);
+  g.add(charge);
+  const chargeMat = charge.material as THREE.MeshBasicMaterial;
+  add((t) => chargeMat.color.setHex(Math.sin(t * 2.2) > 0 ? 0x22ff88 : 0x0a4d22));
 }
 
 function buildCore(g: THREE.Group, add: (t: TickFn) => void): void {
@@ -290,6 +323,16 @@ function buildRecorder(g: THREE.Group, add: (t: TickFn) => void): void {
   g.add(BOX(0.12, 0.05, 0.16, rust, 0, 0.12, 0));
   const ledMat = led.material as THREE.MeshBasicMaterial;
   add((t) => ledMat.color.setHex(Math.sin(t * 6) > 0 ? 0x22ff88 : 0x063300));
+  // correct tape-recorder behavior: reels turn while the message plays
+  const reelM = new THREE.MeshStandardMaterial({ color: 0x9aa3b2, metalness: 0.85, roughness: 0.3 });
+  const reelL = part(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 12), reelM, -0.07, 0.42, 0.065);
+  const reelR = part(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 12), reelM, 0.07, 0.42, 0.065);
+  reelL.rotation.x = reelR.rotation.x = Math.PI / 2;
+  g.add(reelL, reelR);
+  add((_t, dt) => {
+    reelL.rotation.z += (dt ?? 0.016) * 5;
+    reelR.rotation.z += (dt ?? 0.016) * 3.4;
+  });
 }
 
 function buildGlyphWall(g: THREE.Group, add: (t: TickFn) => void): void {
@@ -308,7 +351,7 @@ function buildGlyphWall(g: THREE.Group, add: (t: TickFn) => void): void {
   add((t) => glyphMat.opacity = 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(t * 1.8)));
 }
 
-function buildMapTable(g: THREE.Group): void {
+function buildMapTable(g: THREE.Group, add: (t: TickFn) => void): void {
   g.add(BOX(1.4, 0.08, 1.0, dark, 0, 0.85, 0));
   for (const [x, z] of [[-0.6, -0.4], [0.6, -0.4], [-0.6, 0.4], [0.6, 0.4]] as const) {
     g.add(BOX(0.08, 0.85, 0.08, frame, x, 0.42, z));
@@ -331,6 +374,12 @@ function buildMapTable(g: THREE.Group): void {
       0.012, lampA
     ));
   }
+  // correct field-desk behavior: work lamp breathes, never fully steady
+  const bulb = SPH(0.05, new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), -0.5, 1.25, -0.3, 8, 6);
+  g.add(CYL(0.02, 0.03, 0.45, dark, -0.5, 1.0, -0.3, 8));
+  g.add(bulb);
+  const bulbMat = bulb.material as THREE.MeshBasicMaterial;
+  add((t) => bulbMat.color.setHex(Math.sin(t * 13) * Math.sin(t * 3.7) > -0.92 ? 0xffe9a8 : 0x8a6f3a));
 }
 
 function buildSkyChime(g: THREE.Group, add: (t: TickFn) => void): void {
@@ -406,6 +455,138 @@ function buildOrb(g: THREE.Group, add: (t: TickFn) => void): void {
   });
 }
 
+/* ---------------- any-genre builders: the engine speaks every story ---- */
+/* No canvas textures here, so these also run headless (covered by tests). */
+
+const leaf = new THREE.MeshStandardMaterial({ color: 0x3f6212, roughness: 0.95, flatShading: true });
+const leafDark = new THREE.MeshStandardMaterial({ color: 0x27400b, roughness: 1, flatShading: true });
+const canvasM = new THREE.MeshStandardMaterial({ color: 0xa88f62, roughness: 0.9 });
+const logM = new THREE.MeshStandardMaterial({ color: 0x4a2f1a, roughness: 1 });
+
+function buildCampfire(g: THREE.Group, add: (t: TickFn) => void): void {
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const stone = part(new THREE.DodecahedronGeometry(0.12, 0), rock, Math.cos(a) * 0.55, 0.08, Math.sin(a) * 0.55);
+    stone.rotation.set(a, a * 2, 0);
+    g.add(stone);
+  }
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI;
+    const log = CYL(0.06, 0.06, 0.8, logM, 0, 0.12, 0, 8);
+    log.rotation.z = Math.PI / 2 - 0.25;
+    log.rotation.y = a;
+    g.add(log);
+  }
+  // correct fire behavior: layered flames lick + light breathes with them
+  const outer = part(new THREE.ConeGeometry(0.22, 0.7, 10), new THREE.MeshBasicMaterial({ color: 0xff5a00, transparent: true, opacity: 0.9 }), 0, 0.5, 0);
+  const inner = part(new THREE.ConeGeometry(0.12, 0.45, 8), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.95 }), 0, 0.42, 0);
+  const glow = new THREE.PointLight(0xff8a2a, 10, 12, 1.8);
+  glow.position.y = 0.7;
+  g.add(outer, inner, glow);
+  const seed = Math.random() * 10;
+  add((t) => {
+    const f = 0.85 + 0.15 * Math.sin(t * 13 + seed) * Math.sin(t * 5.3 + seed * 2);
+    outer.scale.set(f, 1 + (f - 0.85) * 2.2, f);
+    inner.scale.set(2 - f, 1 + (f - 0.85) * 1.6, 2 - f);
+    glow.intensity = 8 + 4 * (f - 0.85) * 6;
+  });
+}
+
+function buildTent(g: THREE.Group): void {
+  // correct tent behavior: none — canvas stays put; guy lines hold it down
+  for (const s of [-1, 1]) {
+    const wall = BOX(0.06, 1.5, 1.8, canvasM, s * 0.55, 0.65, 0);
+    wall.rotation.z = s * -0.62;
+    g.add(wall);
+  }
+  g.add(CYL(0.04, 0.04, 2.0, logM, 0, 1.28, 0, 8).rotateX(Math.PI / 2));
+  for (const sx of [-1, 1]) {
+    for (const sz of [-0.8, 0.8]) {
+      g.add(strut(new THREE.Vector3(sx * 0.9, 1.1, sz), new THREE.Vector3(sx * 1.5, 0.02, sz * 1.3), 0.012, dark));
+      g.add(BOX(0.1, 0.16, 0.1, logM, sx * 1.5, 0.06, sz * 1.3));
+    }
+  }
+  g.add(BOX(0.5, 0.7, 0.04, dark, 0, 0.35, 0.93));
+}
+
+function buildTree(g: THREE.Group, add: (t: TickFn) => void): void {
+  g.add(CYL(0.14, 0.2, 1.2, logM, 0, 0.6, 0, 8));
+  const tiers: [number, number, number][] = [[1.1, 1.3, 1.2], [0.85, 1.1, 2.0], [0.55, 0.9, 2.7]];
+  const tops: THREE.Mesh[] = [];
+  tiers.forEach(([r, h, y], i) => {
+    const cone = part(new THREE.ConeGeometry(r, h, 8), i % 2 === 0 ? leaf : leafDark, 0, y, 0);
+    tops.push(cone);
+    g.add(cone);
+  });
+  // correct tree behavior: crown sways in wind, trunk never moves
+  const phase = Math.random() * 6;
+  add((t) => {
+    const sway = Math.sin(t * 1.1 + phase) * 0.03 + Math.sin(t * 2.3 + phase * 2) * 0.012;
+    tops[2].rotation.z = sway;
+    tops[2].position.x = sway * 2;
+  });
+}
+
+function buildTorch(g: THREE.Group, add: (t: TickFn) => void): void {
+  g.add(CYL(0.05, 0.07, 1.6, logM, 0, 0.8, 0, 8));
+  g.add(CYL(0.09, 0.07, 0.18, dark, 0, 1.65, 0, 8));
+  const flame = part(new THREE.ConeGeometry(0.11, 0.34, 8), new THREE.MeshBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0.95 }), 0, 1.9, 0);
+  g.add(flame);
+  const seed = Math.random() * 10;
+  add((t) => {
+    const f = 1 + 0.18 * Math.sin(t * 15 + seed);
+    flame.scale.set(1 / Math.sqrt(f), f, 1 / Math.sqrt(f));
+    flame.rotation.y = t * 3 + seed;
+  });
+}
+
+function buildCrystalCluster(g: THREE.Group, add: (t: TickFn) => void): void {
+  const shards: THREE.Mesh[] = [];
+  const specs: [number, number, number, THREE.Material][] = [
+    [0, 0.55, 0, crystal],
+    [0.35, 0.32, 0.15, crystalV],
+    [-0.33, 0.36, -0.12, crystal],
+    [0.05, 0.25, -0.34, crystalV],
+  ];
+  for (const [x, y, z, m] of specs) {
+    const shard = part(new THREE.OctahedronGeometry(0.22), m, x, y, z);
+    shard.scale.y = 2.2;
+    shard.rotation.y = x * 4;
+    shards.push(shard);
+    g.add(shard);
+  }
+  g.add(part(new THREE.DodecahedronGeometry(0.5, 0), rock, 0, 0.1, 0));
+  // correct crystal behavior: slow breathe of inner light, stone stays dead
+  add((t) => {
+    shards.forEach((s, i) => {
+      (s.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.7 + 0.4 * (0.5 + 0.5 * Math.sin(t * 1.8 + i * 1.7));
+    });
+  });
+}
+
+function buildHabitat(g: THREE.Group, add: (t: TickFn) => void): void {
+  // correct shelter behavior: structure is still, windows breathe with power
+  const hut = CYL(1.2, 1.2, 2.6, hull, 0, 1.0, 0, 16);
+  hut.rotation.z = Math.PI / 2;
+  hut.scale.y = 1;
+  g.add(hut);
+  const cap = SPH(1.2, hull, 1.3, 1.0, 0, 16, 10);
+  cap.scale.set(0.6, 1, 1);
+  g.add(cap);
+  const winMat = new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb45e, emissiveIntensity: 1.2 });
+  for (let i = 0; i < 3; i++) {
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.3), winMat);
+    win.position.set(-0.7 + i * 0.7, 1.2, 1.16);
+    win.rotation.x = -0.12;
+    g.add(win);
+  }
+  g.add(BOX(0.5, 0.9, 0.1, dark, -0.4, 0.45, 1.1));
+  const phase = Math.random() * 6;
+  add((t) => {
+    winMat.emissiveIntensity = 1.1 + 0.25 * Math.sin(t * 3 + phase);
+  });
+}
+
 /* ---------------- entry ---------------- */
 export function createObjectMesh(obj: WorldObject): THREE.Group {
   const g = new THREE.Group();
@@ -418,14 +599,22 @@ export function createObjectMesh(obj: WorldObject): THREE.Group {
     case "rover": case "vehicle": buildRover(g, add); break;
     case "hatch": case "door": buildHatch(g, add); break;
     case "beacon": buildBeacon(g, add); break;
-    case "drone": buildDrone(g, obj.id); break;
-    case "locker": buildLocker(g); break;
+    case "drone": buildDrone(g, obj.id, add); break;
+    case "locker": buildLocker(g, add); break;
     case "core": buildCore(g, add); break;
     case "helmet": buildHelmet(g); break;
     case "recorder": buildRecorder(g, add); break;
     case "glyphwall": buildGlyphWall(g, add); break;
-    case "maptable": buildMapTable(g); break;
+    case "maptable": buildMapTable(g, add); break;
     case "skychime": buildSkyChime(g, add); break;
+    case "campfire": buildCampfire(g, add); break;
+    case "tent": buildTent(g); break;
+    case "tree": buildTree(g, add); break;
+    case "torch": buildTorch(g, add); break;
+    case "crystal": buildCrystalCluster(g, add); break;
+    case "building": buildHabitat(g, add); break;
+    case "creature": buildSurvivor(g, add); break;
+    case "portal": buildOrb(g, add); break;
     case "scrap": case "resource_node": buildScrap(g, obj.id); break;
     case "survivor": case "npc": buildSurvivor(g, add); break;
     case "container": buildCrate(g); break;
