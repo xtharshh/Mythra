@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { forkWorld } from "../community/continuity";
 import { exportWorldCode, importWorldCode } from "../game/share";
@@ -46,7 +46,7 @@ export default function Explore() {
   const [importErr, setImportErr] = useState("");
   const [exportFor, setExportFor] = useState<string | null>(null);
 
-  useMemo(() => { loadSocial(); }, [loadSocial]);
+  useEffect(() => { loadSocial(); }, [loadSocial]);
 
   const all: World[] = useMemo(() => {
     const mine = worlds.filter((w) => w.id !== demoWorld.id);
