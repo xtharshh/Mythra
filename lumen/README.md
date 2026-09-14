@@ -1,6 +1,6 @@
 # MYTHRA — forge any story into a playable world (MVP Phase 1–2)
 
-Browser 3D mystery game engine: any genre, any story in — interactive realistic 3D world out. See `/skills.md`, `/architecture.md`, `/implementations.md` at repo root and `LUMEN_Full_Game_Documentation.md` for the full spec.
+Browser 3D mystery game engine: any genre, any story in — interactive realistic 3D world out. See `/architecture.md` at repo root for the full spec.
 
 ## License — proprietary, all rights reserved
 
