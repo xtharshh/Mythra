@@ -3,6 +3,7 @@ import {
   applyContribution,
   forkWorld,
   makeContribution,
+  nearestLocation,
   snapshotVersion,
   validateContribution,
 } from "../../src/community/continuity";
@@ -72,5 +73,18 @@ describe("forks + versions (new stories)", () => {
     expect(v.worldId).toBe(world.id);
     expect(v.versionNumber).toBe(world.version);
     expect(v.snapshot.id).toBe(world.id);
+  });
+});
+
+describe("nearestLocation (story where I'm standing)", () => {
+  it("picks the closest site by XZ distance", () => {
+    const near = nearestLocation([3, 1.7, 2], world.locations);
+    expect(near?.id).toBe("loc_landing");
+    const far = nearestLocation([22, 1.7, -10], world.locations);
+    expect(far?.id).toBe("loc_water");
+    expect(far!.dist).toBeGreaterThanOrEqual(0);
+  });
+  it("returns null with no locations", () => {
+    expect(nearestLocation([0, 0, 0], [])).toBeNull();
   });
 });

@@ -2,6 +2,7 @@
 // Restore rolls the run back; delete drops the file. Per explorer + world.
 import { useEffect, useState } from "react";
 import { useLumen } from "../state/store";
+import { sfx } from "../audio/sfx";
 import { Icon } from "./icons";
 
 export function CheckpointPanel({ worldId }: { worldId: string }) {
@@ -16,6 +17,7 @@ export function CheckpointPanel({ worldId }: { worldId: string }) {
 
   const save = () => {
     createCheckpoint(label.trim() || `Manual · ${new Date().toLocaleTimeString()}`, "manual");
+    sfx("checkpoint");
     setLabel("");
   };
 
@@ -50,7 +52,7 @@ export function CheckpointPanel({ worldId }: { worldId: string }) {
             <span className={`pill ${c.kind === "manual" ? "cyan" : ""}`}>{c.kind}</span> <b>{c.label}</b>
             <div className="dossier-meta">{new Date(c.createdAt).toLocaleString()} · {c.snapshot.completedMissions.length} missions · {c.snapshot.discoveredClues.length} clues</div>
             <div className="row" style={{ marginTop: 4 }}>
-              <button className="btn-ghost" style={{ padding: "2px 10px" }} onClick={() => restoreCheckpoint(c.id)}>
+              <button className="btn-ghost" style={{ padding: "2px 10px" }} onClick={() => { restoreCheckpoint(c.id); sfx("restore"); }}>
                 <Icon name="arrow" /> Restore
               </button>
               <button className="btn-ghost" style={{ padding: "2px 8px" }} title="Delete checkpoint" onClick={() => deleteCheckpoint(c.id)}>

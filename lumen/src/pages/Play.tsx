@@ -23,8 +23,10 @@ import { suitForUser } from "../game/suits";
 import type { VoiceSettings } from "../audio/voice";
 import { ControlsModal } from "../components/Controls";
 import { MilestoneModal } from "../components/Milestone";
+import { AudioTestModal } from "../components/VoiceTest";
 import type { MilestoneStats } from "../social/milestone";
 import { saveOwner } from "../auth/auth";
+import { setSfxOn, sfx, sfxOn } from "../audio/sfx";
 
 export default function Play() {
   const s = useLumen();
@@ -41,6 +43,8 @@ export default function Play() {
   const [showControls, setShowControls] = useState(false);
   const [peers, setPeers] = useState<PeerPresence[]>([]);
   const [milestone, setMilestone] = useState<MilestoneStats | null>(null);
+  const [showAudio, setShowAudio] = useState(false);
+  const [sound, setSound] = useState(() => sfxOn());
   const stopListenRef = useRef<(() => void) | null>(null);
   const shownBeats = useRef(new Set<string>());
   const toastId = useRef(0);
@@ -151,6 +155,24 @@ export default function Play() {
   // warm TTS voices once so narration has sound from the first beat
   useEffect(() => { warmVoices(); }, []);
 
+  // every button answers with a click — one delegated listener, game-wide
+  useEffect(() => {
+    const onTap = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.("button")) sfx("click");
+    };
+    document.addEventListener("pointerdown", onTap);
+    return () => document.removeEventListener("pointerdown", onTap);
+  }, []);
+
+  const toggleSound = () => {
+    setSound((v) => {
+      setSfxOn(!v);
+      if (!v) window.setTimeout(() => sfx("confirm"), 50);
+      return !v;
+    });
+  };
+
   // every entry counts as a play for the Archive feed
   useEffect(() => {
     if (s.world?.id) useLumen.getState().recordPlay(s.world.id);
@@ -209,13 +231,18 @@ export default function Play() {
     store.inspectObject(obj.id);
     store.pushLog(`Inspected: ${obj.name}`);
     const ix = obj.interaction;
-    if (!ix) { checkMissions(); return; }
+    if (!ix) { sfx("click"); checkMissions(); return; }
+    const narrate = (line: string) => {
+      if (voice.enabled && voice.autoNarrate) speak(line, voice);
+    };
     if (ix.givesItemId) {
       const qty = ix.givesQuantity ?? 1;
       store.collect(ix.givesItemId, qty);
       const total = useLumen.getState().inventory[ix.givesItemId] ?? qty;
       const label = world.resources.find((r) => r.id === ix.givesItemId)?.name ?? ix.givesItemId;
       store.pushLog(`+${qty} ${label} (now ×${total})`);
+      sfx("pickup");
+      narrate(`Plus ${qty} ${label}.`);
       if (ix.givesItemId === "suit") store.pushLog("🛰️ Flight suit acquired — press F (or Fly) to roam the sky!");
     }
     if (ix.kind === "talk") {
@@ -224,21 +251,34 @@ export default function Play() {
         name: speaker?.name ?? "Unknown voice",
         lines: speaker?.dialogue?.length ? speaker.dialogue : ["...static..."],
       });
+      sfx("talk");
     }
     if (ix.revealsClueId) {
       const fresh = useLumen.getState();
       const clue = world.clues.find((c) => c.id === ix.revealsClueId);
       if (fresh.discoveredClues.includes(ix.revealsClueId) && clue) {
         fresh.pushLog(`📜 ${clue.title}: ${clue.text}`);
-        if (voice.enabled && voice.autoNarrate) speak(`${clue.title}. ${clue.text}`, voice);
+        narrate(`${clue.title}. ${clue.text}`);
       } else if (canDiscoverClue(world, ix.revealsClueId, { ...gs, inspectedObjects: new Set([...gs.inspectedObjects, obj.id]), inventory: fresh.inventory })) {
         fresh.discoverClue(ix.revealsClueId);
         const title = world.clues.find((c) => c.id === ix.revealsClueId)?.title ?? ix.revealsClueId;
         fresh.pushLog(`📜 Clue: ${title}`);
-        if (voice.enabled && voice.autoNarrate) speak(`Clue discovered: ${title}`, voice);
-      } else fresh.pushLog("The clue is locked (need item/mission).");
+        sfx("clue");
+        narrate(`Clue discovered: ${title}`);
+      } else {
+        fresh.pushLog("The clue is locked (need item/mission).");
+        sfx("denied");
+      }
     }
-    if (ix.opensPuzzleId) setPuzzleId(ix.opensPuzzleId);
+    if (ix.opensPuzzleId) {
+      setPuzzleId(ix.opensPuzzleId);
+      const pz = world.puzzles.find((p) => p.id === ix.opensPuzzleId);
+      sfx("puzzle");
+      // the question itself, read aloud like a game show host
+      if (pz) narrate(`${pz.title}. ${pz.description}`);
+    }
+    if (ix.kind === "solve" || obj.type === "door") sfx("door");
+    if (ix.kind === "repair" || ix.kind === "activate" || ix.kind === "build") sfx("confirm");
     if (ix.unlocksLocationId) { store.reachLocation(ix.unlocksLocationId); store.pushLog(`🔓 Unlocked: ${ix.unlocksLocationId}`); }
     if (ix.startsMissionId) { store.startMission(ix.startsMissionId); }
     checkMissions();
@@ -256,6 +296,7 @@ export default function Play() {
         useLumen.getState().completeMission(m.id, m.rewards);
         useLumen.getState().pushLog(`✅ Mission complete: ${m.title}`);
         useLumen.getState().createCheckpoint(`Mission: ${m.title}`, "auto");
+        sfx("mission");
         if (voice.enabled && voice.autoNarrate) speak(`Mission complete: ${m.title}`, voice);
         for (const r of m.rewards) if (r.unlocksLocationId) useLumen.getState().reachLocation(r.unlocksLocationId);
         const beat = MISSION_BEATS[m.id];
@@ -282,6 +323,7 @@ export default function Play() {
           if (!localStorage.getItem(key)) {
             localStorage.setItem(key, new Date().toISOString());
             const email = saveOwner();
+            sfx("milestone");
             setMilestone({
               user: email === "guest" ? "guest explorer" : email.split("@")[0],
               worldName: world.name,
@@ -351,6 +393,15 @@ export default function Play() {
         <button className="btn-ghost" onClick={() => s.save()}>Save</button>
         <button className="btn-ghost" onClick={() => s.load()}>Load</button>
         <button className="btn-ghost" title="Remap every action to your own keys" onClick={() => setShowControls(true)}>Controls</button>
+        <button
+          className={sound ? "btn-ghost" : "btn-ghost"}
+          title="Toggle button + object sounds"
+          onClick={toggleSound}
+          style={sound ? undefined : { opacity: 0.55 }}
+        >
+          {sound ? "Sound on" : "Muted"}
+        </button>
+        <button className="btn-ghost" title="Prove speaker + mic work on this machine" onClick={() => setShowAudio(true)}>Audio test</button>
         <button className="btn-ghost" onClick={() => s.reset()}>Reset</button>
       </div>
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
@@ -386,6 +437,7 @@ export default function Play() {
       </div>
       {puzzle && <PuzzleModal puzzle={puzzle} onClose={() => { setPuzzleId(null); setTimeout(checkMissions, 50); }} />}
       {showControls && <ControlsModal onClose={() => setShowControls(false)} />}
+      {showAudio && <AudioTestModal onClose={() => setShowAudio(false)} />}
       {showContribute && <ContributeModal world={world} onClose={() => setShowContribute(false)} />}
       {introOpen && <StoryIntro world={world} onBegin={beginIntro} />}
       <Toasts toasts={toasts} />

@@ -7,11 +7,13 @@ import {
   forkWorld,
   kindAllowed,
   makeContribution,
+  nearestLocation,
   validateContribution,
 } from "../community/continuity";
 import type { ContributionKind, World } from "../types";
 import { useLumen } from "../state/store";
 import { DictateButton, VoiceNotes } from "./VoiceNotes";
+import { Icon } from "./icons";
 import { loadVoiceSettings, speak } from "../audio/voice";
 
 const KIND_LABELS: Record<ContributionKind, string> = {
@@ -25,7 +27,7 @@ export const EXPLORER_NAME = "explorer";
 
 /* ---------------- Contribute: extend the active story ---------------- */
 export function ContributeModal({ world, onClose }: { world: World; onClose: () => void }) {
-  const { contributions, submitContribution } = useLumen();
+  const { contributions, submitContribution, playerPos } = useLumen();
   const allowed = (Object.keys(KIND_LABELS) as ContributionKind[]).filter((k) => kindAllowed(k, world.permissions));
   const [kind, setKind] = useState<ContributionKind>(allowed[0] ?? "clue");
   const [title, setTitle] = useState("");
@@ -34,6 +36,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
   const [location, setLocation] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
+  const here = nearestLocation(playerPos, world.locations);
 
   if (allowed.length === 0) {
     return (
@@ -53,7 +56,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
       title,
       text,
       targetMissionId: mission || undefined,
-      targetLocationId: kind === "clue" ? location || undefined : undefined,
+      targetLocationId: location || undefined,
     };
     const check = validateContribution(draft, world, contributions, EXPLORER_NAME);
     if (!check.ok) { setError(check.error); return; }
@@ -96,6 +99,22 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
               {world.locations.filter((l) => !l.locked).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </>
+        )}
+        {(kind === "note" || kind === "story_fragment" || kind === "mission_idea") && (
+          <>
+            <label>Pin to location (optional — defaults to where you stand)</label>
+            <select value={location} onChange={(e) => setLocation(e.target.value)}>
+              <option value="">— where I'm standing{here ? `: ${here.name}` : ""} —</option>
+              {world.locations.map((l) => <option key={l.id} value={l.id}>{l.name}{l.locked ? " (sealed)" : ""}</option>)}
+            </select>
+          </>
+        )}
+        {here && (
+          <div className="row" style={{ marginTop: 6 }}>
+            <button className="btn-ghost" style={{ padding: "2px 10px" }} title="Pin this contribution to your current spot" onClick={() => setLocation(here.id)}>
+              <Icon name="pin" size={12} /> Use where I'm standing · {here.name} ({here.dist.toFixed(0)}m)
+            </button>
+          </div>
         )}
         <label>Text ({CONTRIBUTION_LIMITS.textMin}–{CONTRIBUTION_LIMITS.textMax} chars)</label>
         <textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write what the next explorer should find…" />

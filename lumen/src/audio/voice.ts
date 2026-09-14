@@ -68,14 +68,25 @@ function pickVoice(uri: string | null): SpeechSynthesisVoice | null {
   );
 }
 
-/** Speak text; no-op when disabled/unsupported. Cancels overlapping speech first. */
+/** Speak text; no-op when disabled/unsupported. Serialized through a short
+ *  queue so overlapping calls and StrictMode remounts can't eat the audio:
+ *  every utterance is (re)scheduled ~80ms after cancel, and stopSpeaking()
+ *  clears the pending slot too. */
+let pendingTimer: number | null = null;
+
 export function speak(text: string, settings: VoiceSettings): boolean {
   if (!settings.enabled || !isTtsSupported()) return false;
   const clean = text.trim().slice(0, 600);
   if (!clean) return false;
   try {
     const synth = window.speechSynthesis;
-    const say = () => {
+    if (pendingTimer !== null) {
+      window.clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
+    synth.cancel();
+    pendingTimer = window.setTimeout(() => {
+      pendingTimer = null;
       try {
         const utter = new SpeechSynthesisUtterance(clean);
         const voice = pickVoice(settings.voiceURI);
@@ -86,14 +97,7 @@ export function speak(text: string, settings: VoiceSettings): boolean {
       } catch {
         /* ignore */
       }
-    };
-    if (synth.speaking || synth.pending) {
-      // Chrome drops speak() issued in the same tick as cancel() — defer past it
-      synth.cancel();
-      window.setTimeout(say, 70);
-    } else {
-      say();
-    }
+    }, 80);
     return true;
   } catch {
     return false;
@@ -115,6 +119,10 @@ export function warmVoices(): void {
 
 export function stopSpeaking(): void {
   try {
+    if (pendingTimer !== null) {
+      window.clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
     if (isTtsSupported()) window.speechSynthesis.cancel();
   } catch {
     /* ignore */

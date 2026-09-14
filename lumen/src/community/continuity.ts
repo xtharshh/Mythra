@@ -152,6 +152,24 @@ export function applyContribution(world: World, c: Contribution): World {
   };
 }
 
+/** Nearest location to a world position (XZ). Pure — powers "where I'm standing". */
+export function nearestLocation(
+  pos: readonly [number, number, number],
+  locations: World["locations"],
+): { id: string; name: string; dist: number } | null {
+  if (locations.length === 0) return null;
+  let best = locations[0];
+  let bestD = Math.hypot(best.position[0] - pos[0], best.position[2] - pos[2]);
+  for (const l of locations.slice(1)) {
+    const d = Math.hypot(l.position[0] - pos[0], l.position[2] - pos[2]);
+    if (d < bestD) {
+      bestD = d;
+      best = l;
+    }
+  }
+  return { id: best.id, name: best.name, dist: bestD };
+}
+
 /** Fork an existing story into a brand-new one (new id, draft status). */
 export function forkWorld(world: World, authorName = "you"): World {
   const stamp = Date.now();
@@ -171,8 +189,7 @@ export function forkWorld(world: World, authorName = "you"): World {
   };
 }
 
-export function snapshotVersion(world: World, createdBy: string, changeSummary: string): WorldVersion {
-  return {
+export function snapshotVersion(world: World, createdBy: string, changeSummary: string): WorldVersion {  return {
     id: `v-${world.id}-${world.version}-${Date.now().toString(36)}`,
     worldId: world.id,
     versionNumber: world.version,
