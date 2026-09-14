@@ -129,6 +129,74 @@ export function stopSpeaking(): void {
   }
 }
 
+export interface TtsDiagnosis {
+  supported: boolean;
+  secure: boolean;
+  voiceCount: number;
+  voices: string[];
+  defaultVoice: string | null;
+}
+
+/** Full TTS capability report for the Audio self-test. Headless-safe. */
+export function diagnoseTts(): TtsDiagnosis {
+  const empty: TtsDiagnosis = { supported: false, secure: false, voiceCount: 0, voices: [], defaultVoice: null };
+  try {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return empty;
+    const secure = typeof window.isSecureContext === "boolean" ? window.isSecureContext : true;
+    const voices = getAvailableVoices();
+    const pick = pickVoice(null);
+    return {
+      supported: true,
+      secure,
+      voiceCount: voices.length,
+      voices: voices.slice(0, 8).map((v) => `${v.name} (${v.lang})`),
+      defaultVoice: pick ? `${pick.name} (${pick.lang})` : null,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export interface SpeakEvents {
+  onStart?: () => void;
+  onEnd?: () => void;
+  onError?: (message: string) => void;
+}
+
+/** speak() with lifecycle reporting for diagnostics. Same queue, same guards. */
+export function speakDetailed(text: string, settings: VoiceSettings, events: SpeakEvents = {}): boolean {
+  if (!settings.enabled || !isTtsSupported()) return false;
+  const clean = text.trim().slice(0, 600);
+  if (!clean) return false;
+  try {
+    const synth = window.speechSynthesis;
+    if (pendingTimer !== null) {
+      window.clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
+    synth.cancel();
+    pendingTimer = window.setTimeout(() => {
+      pendingTimer = null;
+      try {
+        const utter = new SpeechSynthesisUtterance(clean);
+        const voice = pickVoice(settings.voiceURI);
+        if (voice) utter.voice = voice;
+        utter.rate = Math.min(2, Math.max(0.5, settings.rate));
+        utter.pitch = Math.min(2, Math.max(0, settings.pitch));
+        utter.onstart = () => events.onStart?.();
+        utter.onend = () => events.onEnd?.();
+        utter.onerror = (ev) => events.onError?.((ev as SpeechSynthesisErrorEvent)?.error || "speech error");
+        synth.speak(utter);
+      } catch {
+        events.onError?.("speak threw");
+      }
+    }, 80);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Voice commands (input)
 // ---------------------------------------------------------------------------

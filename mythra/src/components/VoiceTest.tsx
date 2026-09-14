@@ -2,13 +2,15 @@
 // Test tone (unconditional TTS), live mic level meter, 3s sample record +
 // playback, and the exact permission state — no more guessing what's broken.
 import { useEffect, useRef, useState } from "react";
-import { isTtsSupported, loadVoiceSettings, speak } from "../audio/voice";
+import { diagnoseTts, isTtsSupported, loadVoiceSettings, speakDetailed } from "../audio/voice";
+import type { TtsDiagnosis } from "../audio/voice";
 import { isRecordingSupported, listMicDevices } from "../audio/voiceNotes";
 import type { MicDevice } from "../audio/voiceNotes";
 import { Icon } from "./icons";
 
 export function AudioTestModal({ onClose }: { onClose: () => void }) {
   const [toneMsg, setToneMsg] = useState("");
+  const [diag, setDiag] = useState<TtsDiagnosis | null>(null);
   const [perm, setPerm] = useState<string>("checking…");
   const [devices, setDevices] = useState<MicDevice[] | null>(null);
   const [level, setLevel] = useState(0);
@@ -19,6 +21,11 @@ export function AudioTestModal({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     let alive = true;
+    setDiag(diagnoseTts());
+    const id = window.setInterval(() => {
+      // voices arrive async — refresh until the list populates
+      if (alive) setDiag(diagnoseTts());
+    }, 1000);
     void listMicDevices().then((d) => {
       if (alive) setDevices(d);
     });
@@ -32,6 +39,7 @@ export function AudioTestModal({ onClose }: { onClose: () => void }) {
     })();
     return () => {
       alive = false;
+      window.clearInterval(id);
       try {
         meterRef.current?.stop();
       } catch {
@@ -42,8 +50,17 @@ export function AudioTestModal({ onClose }: { onClose: () => void }) {
 
   const testTone = () => {
     const s = loadVoiceSettings();
-    const ok = speak("Mythra audio check. If you hear this, the speaker path works.", { ...s, enabled: true });
-    setToneMsg(ok ? "Tone sent — did you hear it? If not, check OS volume + the Voice toggle." : "Speech synthesis unavailable in this browser.");
+    setToneMsg("Sending…");
+    const ok = speakDetailed(
+      "Mythra audio check. If you hear this, the speaker path works.",
+      { ...s, enabled: true },
+      {
+        onStart: () => setToneMsg("Playing now — sound should be audible."),
+        onEnd: () => setToneMsg("Finished. Heard it = speaker path works. Silent = check OS volume and output device."),
+        onError: (m) => setToneMsg(`Browser refused speech (${m}) — try Chrome or Edge.`),
+      },
+    );
+    if (!ok) setToneMsg("Speech synthesis unavailable in this browser.");
   };
 
   const startMeter = async () => {
@@ -142,6 +159,15 @@ export function AudioTestModal({ onClose }: { onClose: () => void }) {
         <h3 style={{ margin: "8px 0 4px", textTransform: "uppercase", letterSpacing: 1 }}>Prove it makes sound</h3>
 
         <label>1 · Speaker (TTS {isTtsSupported() ? "supported" : "NOT supported"})</label>
+        {diag && (
+          <div className="dossier-meta" style={{ marginBottom: 6 }}>
+            supported: {diag.supported ? "yes" : "NO"} · secure page: {diag.secure ? "yes" : "NO — mic + TTS can fail here"} · voices: {diag.voiceCount}
+            {diag.defaultVoice ? ` · default: ${diag.defaultVoice}` : ""}
+          </div>
+        )}
+        {diag && diag.voices.length > 0 && (
+          <div className="dossier-meta" style={{ marginBottom: 6 }}>heard so far: {diag.voices.join(" · ")}</div>
+        )}
         <div className="row">
           <button className="btn" onClick={testTone}><Icon name="speaker" size={13} /> Play test sound</button>
         </div>

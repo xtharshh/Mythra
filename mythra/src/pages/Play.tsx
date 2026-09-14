@@ -24,12 +24,15 @@ import { loadSession } from "../auth/auth";
 import { loadCharacter, encodeSuit, decodeSuit } from "../game/suits";
 import type { VoiceSettings } from "../audio/voice";
 import { ControlsModal } from "../components/Controls";
+import { loadView, saveView } from "../game/controls";
+import type { ViewMode } from "../game/controls";
 import { CharacterModal } from "../components/Character";
 import { MilestoneModal } from "../components/Milestone";
 import { AudioTestModal } from "../components/VoiceTest";
 import type { MilestoneStats } from "../social/milestone";
 import { saveOwner } from "../auth/auth";
 import { setSfxOn, sfx, sfxOn } from "../audio/sfx";
+import { ambient, loadAmbience, saveAmbience } from "../audio/ambient";
 
 export default function Play() {
   const s = useLumen();
@@ -48,8 +51,10 @@ export default function Play() {
   const [milestone, setMilestone] = useState<MilestoneStats | null>(null);
   const [showAudio, setShowAudio] = useState(false);
   const [sound, setSound] = useState(() => sfxOn());
+  const [ambience, setAmbience] = useState(() => loadAmbience());
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
+  const [view, setView] = useState<ViewMode>(() => loadView());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCharacter, setShowCharacter] = useState(false);
   const [character, setCharacter] = useState(() => loadCharacter());
@@ -137,6 +142,15 @@ export default function Play() {
     stopSpeaking();
   }, []);
 
+  const toggleView = () => {
+    setView((v) => {
+      const next: ViewMode = v === "third" ? "first" : "third";
+      saveView(next);
+      useLumen.getState().pushLog(next === "third" ? "Camera: third person — explorer visible." : "Camera: first person — through your visor.");
+      return next;
+    });
+  };
+
   const toggleFly = () => {
     if (!hasSuit) {
       s.pushLog("🛰️ You need the flight suit — check the Rover Garage locker.");
@@ -164,6 +178,37 @@ export default function Play() {
 
   // warm TTS voices once so narration has sound from the first beat
   useEffect(() => { warmVoices(); }, []);
+
+  // universe ambience: starts on first gesture (autoplay policy), stops off-surface
+  useEffect(() => {
+    if (!s.world) return;
+    const theme = s.world.theme;
+    let on = loadAmbience();
+    const kick = () => {
+      if (on) ambient.start(theme);
+    };
+    // already-gestured sessions start immediately; otherwise first tap/key does it
+    kick();
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("keydown", kick, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("keydown", kick);
+      ambient.stop();
+      on = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.world?.id]);
+
+  const toggleAmbience = () => {
+    setAmbience((v) => {
+      const next = !v;
+      saveAmbience(next);
+      if (next && s.world) ambient.start(s.world.theme);
+      else ambient.stop();
+      return next;
+    });
+  };
 
   // fullscreen label follows the actual state (Esc exits natively)
   useEffect(() => {
@@ -418,6 +463,9 @@ export default function Play() {
         <button className="btn-ghost" title="Play in fullscreen (Esc exits)" onClick={() => void toggleFullscreen()}>
           {isFullscreen ? "Exit full" : "Fullscreen"}
         </button>
+        <button className="btn-ghost" title="Switch first / third person camera (V)" onClick={toggleView}>
+          {view === "third" ? "3rd person" : "1st person"}
+        </button>
         <button className="btn-ghost" title="Show or hide the side panel" onClick={() => setPanelOpen((v) => !v)}>
           {panelOpen ? "Hide panel" : "Show panel"}
         </button>
@@ -432,6 +480,9 @@ export default function Play() {
               <button className="btn-ghost" title="Toggle button + object sounds" onClick={toggleSound} style={sound ? undefined : { opacity: 0.55 }}>
                 {sound ? "Sound on" : "Muted"}
               </button>
+              <button className="btn-ghost" title="Toggle the universe ambience bed" onClick={() => { toggleAmbience(); }} style={ambience ? undefined : { opacity: 0.55 }}>
+                {ambience ? "Ambience on" : "Ambience off"}
+              </button>
               <button className="btn-ghost" onClick={() => { s.reset(); setMenuOpen(false); }}>Reset world</button>
             </div>
           )}
@@ -440,7 +491,7 @@ export default function Play() {
       <InventoryStrip world={world} />
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12, gridTemplateColumns: panelOpen ? undefined : "1fr" }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} />
+          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} />
           {target && (
             <button
               className="btn"

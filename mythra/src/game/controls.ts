@@ -112,3 +112,25 @@ export function isDown(action: GameAction, held: Set<string>, binds: Binds): boo
   for (const c of list) if (held.has(c)) return true;
   return false;
 }
+
+/* ---------------- camera view mode (first / third person) ---- */
+
+export type ViewMode = "first" | "third";
+
+const VIEW_KEY = "lumen-view-v1";
+
+export function loadView(): ViewMode {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "first" ? "first" : "third";
+  } catch {
+    return "third";
+  }
+}
+
+export function saveView(v: ViewMode): void {
+  try {
+    localStorage.setItem(VIEW_KEY, v);
+  } catch {
+    /* ignore */
+  }
+}

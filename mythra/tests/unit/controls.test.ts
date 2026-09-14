@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_BINDS, checkBindable, isDown, isReservedCode, loadBinds, prettyCode } from "../../src/game/controls";
+import { DEFAULT_BINDS, checkBindable, isDown, isReservedCode, loadBinds, loadView, prettyCode, saveView } from "../../src/game/controls";
 import type { GameAction } from "../../src/game/controls";
 
 const key = (code: string, mods = {}) => ({ code, ctrlKey: false, metaKey: false, altKey: false, ...mods });
@@ -38,5 +38,10 @@ describe("controls", () => {
 
   it("falls back to defaults headless", () => {
     expect(loadBinds().forward).toEqual(DEFAULT_BINDS.forward);
+  });
+
+  it("prefers third person and never throws headless", () => {
+    expect(loadView()).toBe("third");
+    expect(() => saveView("first")).not.toThrow();
   });
 });

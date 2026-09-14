@@ -27,7 +27,7 @@ import { createObjectMesh } from "./factory";
 import type { TickFn } from "./factory";
 import { BINDS_EVENT } from "../components/Controls";
 import { isDown, loadBinds, prettyCode } from "../game/controls";
-import type { Binds } from "../game/controls";
+import type { Binds, ViewMode } from "../game/controls";
 
 export interface PeerPresence {
   user: string;
@@ -47,6 +47,8 @@ interface Props {
   onTargetChange?: (obj: WorldObject | null) => void;
   peers?: PeerPresence[];
   character: { suit: number; accent: number };
+  view: ViewMode;
+  onToggleViewRequest: () => void;
   focusedObjectId?: string | null;
 }
 
@@ -98,7 +100,7 @@ function firstStd(root: THREE.Object3D): THREE.MeshStandardMaterial | null {  le
 function hintHTML(b: Binds): string {
   const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
   const k = (a: keyof Binds) => `<span class="key sm">${esc(prettyCode(b[a][0]))}</span>`;
-  return `WASD move · drag look · ${k("interact")} interact · Shift sprint · ${k("flyToggle")} fly · ${k("flyUp")}/${k("flyDown")} up/down · Space jump`;
+  return `WASD move · drag look · ${k("interact")} interact · Shift sprint · ${k("flyToggle")} fly · ${k("flyUp")}/${k("flyDown")} up/down · Space jump · V view`;
 }
 
 /** Floating username plate above a remote explorer. */
@@ -126,7 +128,7 @@ function makeNameTag(name: string): THREE.Mesh {
   return m;
 }
 
-export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character }: Props) {
+export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character, view, onToggleViewRequest }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({
     keys: new Set<string>(),
@@ -145,8 +147,10 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
   peersRef.current = peers ?? [];
   const characterRef = useRef(character);
   characterRef.current = character;
-  const callbacks = useRef({ onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange });
-  callbacks.current = { onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange };
+  const viewRef = useRef<ViewMode>(view);
+  viewRef.current = view;
+  const callbacks = useRef({ onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, onToggleViewRequest });
+  callbacks.current = { onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, onToggleViewRequest };
   const flags = useRef({ flyMode, hasSuit });
   flags.current = { flyMode, hasSuit };
   const worldRef = useRef(world);
@@ -450,6 +454,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       const B = bindsRef.current;
       const flyingNow = flags.current.flyMode && flags.current.hasSuit;
       if (isDown("flyToggle", st.keys, B) && !e.repeat) callbacks.current.onToggleFlyRequest();
+      if (e.code === "KeyV" && !e.repeat) callbacks.current.onToggleViewRequest();
       const interactKey = isDown("interact", st.keys, B) || e.key === "e" || e.key === "E";
       // ignore key-repeat for interact so holding E can't silently multi-fire
       if (interactKey && !e.repeat && st.interactObj) callbacks.current.onInteractRequest(st.interactObj);
@@ -553,14 +558,25 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
         if (st.grounded) st.vy = 0;
       }
       // --- you, visible: avatar rides your position, camera floats above-behind
+      // --- (third person) or sits at your eyes (first person, avatar hidden)
       dressMe();
+      const third = viewRef.current === "third";
       if (me) {
-        me.group.position.set(st.pos.x, st.pos.y - GROUND_Y, st.pos.z);
-        me.group.rotation.y = st.yaw + Math.PI;
-        me.state.moving = moving || !st.grounded;
-        me.state.waving = false;
+        me.group.visible = third;
+        if (third) {
+          me.group.position.set(st.pos.x, st.pos.y - GROUND_Y, st.pos.z);
+          me.group.rotation.y = st.yaw + Math.PI;
+          me.state.moving = moving || !st.grounded;
+          me.state.waving = false;
+        }
       }
-      {
+      if (!third) {
+        camera.position.copy(st.pos);
+        camera.rotation.set(0, 0, 0);
+        camera.rotateY(st.yaw);
+        camera.rotateX(st.pitch);
+        snappedCam = false;
+      } else {
         const back = 3.6;
         const desired = new THREE.Vector3(
           st.pos.x + Math.sin(st.yaw) * back,
