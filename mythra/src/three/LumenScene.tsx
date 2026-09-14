@@ -49,6 +49,9 @@ interface Props {
   character: { suit: number; accent: number };
   view: ViewMode;
   onToggleViewRequest: () => void;
+  /** Canonical player position (store). The scene snaps to it when it jumps
+   *  farther than a frame of movement can explain (restore / load / respawn). */
+  home: [number, number, number];
   focusedObjectId?: string | null;
 }
 
@@ -128,7 +131,7 @@ function makeNameTag(name: string): THREE.Mesh {
   return m;
 }
 
-export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character, view, onToggleViewRequest }: Props) {
+export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character, view, onToggleViewRequest, home }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({
     keys: new Set<string>(),
@@ -147,6 +150,8 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
   peersRef.current = peers ?? [];
   const characterRef = useRef(character);
   characterRef.current = character;
+  const homeRef = useRef<[number, number, number]>(home);
+  homeRef.current = home;
   const viewRef = useRef<ViewMode>(view);
   viewRef.current = view;
   const callbacks = useRef({ onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, onToggleViewRequest });
@@ -556,6 +561,21 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       } else {
         st.grounded = st.pos.y <= GROUND_Y + 0.01;
         if (st.grounded) st.vy = 0;
+      }
+      // restore / load teleports the canonical position — snap to it
+      {
+        const hp = homeRef.current;
+        if (
+          Math.abs(hp[0] - st.pos.x) > 1.5 ||
+          Math.abs(hp[1] - st.pos.y) > 1.5 ||
+          Math.abs(hp[2] - st.pos.z) > 1.5
+        ) {
+          st.pos.set(hp[0], hp[1], hp[2]);
+          st.vy = 0;
+          st.grounded = hp[1] <= GROUND_Y + 0.01;
+          snappedCam = false;
+          callbacks.current.onPositionChange([st.pos.x, st.pos.y, st.pos.z]);
+        }
       }
       // --- you, visible: avatar rides your position, camera floats above-behind
       // --- (third person) or sits at your eyes (first person, avatar hidden)

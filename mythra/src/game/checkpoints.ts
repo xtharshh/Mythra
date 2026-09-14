@@ -27,7 +27,7 @@ export interface Checkpoint {
   snapshot: CheckpointSnapshot;
 }
 
-export const MAX_CHECKPOINTS = 12;
+export const MAX_CHECKPOINTS = 3;
 
 export function checkpointKey(owner: string, worldId: string): string {
   return `lumen-checkpoints-v1:${owner}:${worldId}`;

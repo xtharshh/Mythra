@@ -22,7 +22,7 @@ import { importWorldCode } from "../game/share";
 import { RacePanel } from "../components/Race";
 import { triggerObject } from "../three/effects";
 import type { PeerPresence } from "../three/LumenScene";
-import { api, apiOn } from "../api/client";
+import { api, apiOn, apiToken } from "../api/client";
 import { loadSession } from "../auth/auth";
 import { loadCharacter, encodeSuit, decodeSuit } from "../game/suits";
 import type { VoiceSettings } from "../audio/voice";
@@ -334,6 +334,10 @@ export default function Play() {
       useLumen.getState().pushLog("Invite link carries the tale (offline) — connect the API for the live race.");
       return;
     }
+    if (!apiToken()) {
+      useLumen.getState().pushLog("Sign in first (nav → Sign in) — race rooms need a username.");
+      return;
+    }
     const r = await api.createRoom(w.id);
     if (!r) {
       useLumen.getState().pushLog("Couldn't open a race room — API unreachable.");
@@ -550,7 +554,7 @@ export default function Play() {
       <InventoryStrip world={world} />
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12, gridTemplateColumns: panelOpen ? undefined : "1fr" }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} />
+          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
           {target && (
             <button
               className="btn"
