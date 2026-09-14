@@ -523,8 +523,10 @@ export default function Play() {
           {panelOpen ? "Hide panel" : "Show panel"}
         </button>
         <div style={{ position: "relative" }}>
-          <button className="btn-ghost" title="Save, checkpoints, controls, audio" onClick={() => setMenuOpen((v) => !v)}>Menu</button>          {menuOpen && (
+          <button className="btn-ghost" title="Save, checkpoints, controls, audio" onClick={() => setMenuOpen((v) => !v)}>Menu</button>
+          {menuOpen && (
             <div className="hud-panel" style={{ position: "absolute", right: 0, top: 44, zIndex: 20, minWidth: 190, display: "flex", flexDirection: "column", gap: 6 }}>
+              <button className="btn" title="Invite solvers to this tale (join link + speed race)" onClick={() => { void invite().then(() => setSideTab("system")); setMenuOpen(false); }}>Invite solvers</button>
               <button className="btn-ghost" onClick={() => { s.save(); setMenuOpen(false); }}>Save run</button>
               <button className="btn-ghost" onClick={() => { s.load(); setMenuOpen(false); }}>Load run</button>
               <button className="btn-ghost" title="Pick your explorer suit" onClick={() => { setShowCharacter(true); setMenuOpen(false); }}>Character: {character.label}</button>
