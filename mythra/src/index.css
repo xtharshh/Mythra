@@ -44,6 +44,12 @@ body {
   background-size: 5px 5px;
 }
 h1, h2, h3, b { letter-spacing: 0.2px; }
+h1, h2, h3,
+.hud-panel > b,
+.modal b,
+.toast b {
+  font-family: var(--font-display);
+}
 .case-title, .intro-title, .nav b, .btn, .transmission h3 {
   font-family: var(--font-display);
 }

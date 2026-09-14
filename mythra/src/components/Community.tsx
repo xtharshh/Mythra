@@ -13,6 +13,7 @@ import {
 import type { ContributionKind, World } from "../types";
 import { useLumen } from "../state/store";
 import { DictateButton, VoiceNotes } from "./VoiceNotes";
+import { explorerName } from "../game/credits";
 import { Icon } from "./icons";
 import { loadVoiceSettings, speak } from "../audio/voice";
 
@@ -22,8 +23,6 @@ const KIND_LABELS: Record<ContributionKind, string> = {
   story_fragment: "Story chapter",
   mission_idea: "Mission idea",
 };
-
-export const EXPLORER_NAME = "explorer";
 
 /* ---------------- Contribute: extend the active story ---------------- */
 export function ContributeModal({ world, onClose }: { world: World; onClose: () => void }) {
@@ -51,6 +50,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
   }
 
   const submit = () => {
+    const author = explorerName(); // signed-in username, else guest explorer
     const draft = {
       kind,
       title,
@@ -58,10 +58,10 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
       targetMissionId: mission || undefined,
       targetLocationId: location || undefined,
     };
-    const check = validateContribution(draft, world, contributions, EXPLORER_NAME);
+    const check = validateContribution(draft, world, contributions, author);
     if (!check.ok) { setError(check.error); return; }
     const autoApprove = world.permissions.contributionMode === "open";
-    submitContribution(makeContribution(draft, world.id, EXPLORER_NAME, autoApprove));
+    submitContribution(makeContribution(draft, world.id, author, autoApprove));
     setDone(autoApprove ? "✔ Published — the story continues!" : "✉ Submitted — the creator will review it.");
     setError("");
     setTitle(""); setText("");
@@ -73,7 +73,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
       <div className="modal card" onClick={(e) => e.stopPropagation()}>
         <b>Continue this story</b>
         <p className="muted" style={{ fontSize: 13 }}>
-          Add a {KIND_LABELS[kind].toLowerCase()} to “{world.name}”.
+          Add a {KIND_LABELS[kind].toLowerCase()} to “{world.name}” as <b>{explorerName()}</b>.
           {world.permissions.contributionMode === "open" ? " It publishes instantly." : " The creator reviews it first."}
         </p>
         <label>Kind</label>
