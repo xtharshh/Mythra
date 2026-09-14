@@ -1,4 +1,4 @@
-// MYTHRA backend store — Postgres (Neon serverless, fetch-based: no pooled
+// Mythio backend store — Postgres (Neon serverless, fetch-based: no pooled
 // connections, safe for Vercel serverless). Same `Store` contract as SQLite;
 // JSON blobs stay TEXT for 1:1 parity. Used when DATABASE_URL is set.
 import { neon } from "@neondatabase/serverless";

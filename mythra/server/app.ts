@@ -1,4 +1,4 @@
-// MYTHRA API app — Fastify backend for worlds, progress, leaderboard, presence.
+// Mythio API app — Fastify backend for worlds, progress, leaderboard, presence.
 // The store behind it is SQLite locally, Postgres (Neon) when DATABASE_URL is
 // set (Vercel). See server/index.ts (listen) and api/[...all].ts (serverless).
 import Fastify from "fastify";
@@ -117,7 +117,7 @@ const emailOf = async (req: { headers: Record<string, string | string[] | undefi
   return store.emailForToken(token);
 };
 
-app.get("/health", async () => ({ ok: true, service: "mythra-api", store: usingPostgres ? "postgres" : "sqlite", discord: discordConfigured() }));
+app.get("/health", async () => ({ ok: true, service: "mythio-api", store: usingPostgres ? "postgres" : "sqlite", discord: discordConfigured() }));
 app.get("/ready", async () => ({ ok: true }));
 
 // --- Sign in with Discord (OAuth2; secret stays server-side) ---

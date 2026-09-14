@@ -197,7 +197,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
   plays: {},
   ratings: {},
   playerPos: [0, 1.7, 6],
-  log: ["Welcome to MYTHRA."],
+  log: ["Welcome to Mythio."],
 
   setWorld: (world) => {
     set({ world });
@@ -375,7 +375,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
       get().pushLog("Progress restored.");
     } catch { /* ignore */ }
   },
-  reset: () => set({ inventory: {}, discoveredClues: [], completedMissions: [], activeMissions: [], solvedPuzzles: [], inspectedObjects: [], reachedLocations: ["loc_landing"], flags: {}, notes: {}, playerPos: [0, 1.7, 6], log: ["Welcome to MYTHRA.", "World reset."] }),
+  reset: () => set({ inventory: {}, discoveredClues: [], completedMissions: [], activeMissions: [], solvedPuzzles: [], inspectedObjects: [], reachedLocations: ["loc_landing"], flags: {}, notes: {}, playerPos: [0, 1.7, 6], log: ["Welcome to Mythio.", "World reset."] }),
 
   persistLibrary: () => {
     const s = get();

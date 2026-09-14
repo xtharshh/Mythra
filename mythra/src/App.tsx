@@ -10,6 +10,8 @@ import { Privacy, Terms } from "./pages/Legal";
 import { AuthButton, EntryModal, LoginModal } from "./components/Login";
 import { Tutorial, tutorialSeen } from "./components/Tutorial";
 import { MobileGate, dismissMobileGate, isMobileDevice, mobileGateDismissed } from "./components/MobileGate";
+import { LANGS, t, useLang } from "./i18n/lang";
+import type { LangId } from "./i18n/lang";
 import { Logo } from "./components/Logo";
 import { SupportButton } from "./components/Support";
 import { useLumen } from "./state/store";
@@ -59,6 +61,7 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
   const [entryMode, setEntryMode] = useState<EntryMode | null>(() => loadEntryChoice());
   const [signedIn, setSignedIn] = useState(() => loadSession() !== null);
   const [gateOpen, setGateOpen] = useState(() => isMobileDevice() && !mobileGateDismissed());
+  const { lang, setLang } = useLang();
   // whoever signs in/out, their game data swaps in live — no page reload
   useEffect(() => {
     switchUser();
@@ -120,33 +123,42 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
   return (
     <Router>
       <nav className="nav">
-        <b className="nav-brand"><Logo size={30} /> Mythra</b>
+        <b className="nav-brand"><Logo size={30} /> Mythio</b>
         <div className="nav-center">
-          <Link to="/">Dossier</Link>
-          <Link to="/explore">Archive</Link>
-          <Link to="/play">Surface</Link>
-          <Link to="/create">Planner</Link>
-          <Link to="/studio">Control</Link>
+          <Link to="/">{t("nav.dossier", lang)}</Link>
+          <Link to="/explore">{t("nav.archive", lang)}</Link>
+          <Link to="/play">{t("nav.surface", lang)}</Link>
+          <Link to="/create">{t("nav.planner", lang)}</Link>
+          <Link to="/studio">{t("nav.control", lang)}</Link>
         </div>
         <div className="nav-right">
           {!signedIn && (
             <button
               className="btn-ghost"
               style={{ padding: "4px 10px" }}
-              title="Switch offline / online mode"
+              title={t("nav.modeTitle", lang)}
               onClick={() => setEntryOpen(true)}
             >
-              {entryMode === "online" ? "Online" : "Offline"}
+              {entryMode === "online" ? t("nav.online", lang) : t("nav.offline", lang)}
             </button>
           )}
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value as LangId)}
+            title={t("nav.language", lang)}
+            className="btn-ghost"
+            style={{ padding: "4px 6px" }}
+          >
+            {LANGS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+          </select>
           <SupportButton compact />
           <button
             className="btn-ghost"
             style={{ padding: "4px 10px" }}
-            title="Replay the cinematic field manual"
+            title={t("nav.tutTitle", lang)}
             onClick={() => setTutorialOpen(true)}
           >
-            Tutorial
+            {t("nav.tutorial", lang)}
           </button>
           <AuthButton onSignIn={() => setLoginOpen(true)} />
         </div>
@@ -163,7 +175,7 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
       </Routes>
       </RouteBoundary>
       <footer style={{ borderTop: "1px solid var(--border)", padding: "14px 22px", display: "flex", gap: 16, alignItems: "center", fontSize: 12 }} className="muted">
-        <span>© 2026 xtharshh · MYTHRA — all rights reserved</span>
+        <span>© 2026 xtharshh · Mythio — all rights reserved</span>
         <span style={{ flex: 1 }} />
         <Link to="/terms">Terms</Link>
         <Link to="/privacy">Privacy</Link>

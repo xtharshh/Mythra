@@ -32,7 +32,7 @@ export function MilestoneModal({ stats, ground, onClose }: { stats: MilestoneSta
     if (blob && url) {
       const a = document.createElement("a");
       a.href = url;
-      a.download = "mythra-milestone.png";
+      a.download = "mythio-milestone.png";
       a.click();
     }
   };
@@ -45,7 +45,7 @@ export function MilestoneModal({ stats, ground, onClose }: { stats: MilestoneSta
           {stats.worldName} — solved by {stats.user}
         </h3>
         {url ? (
-          <img src={url} alt="MYTHRA milestone card" style={{ width: "100%", borderRadius: 6, border: "1px solid var(--border-strong)" }} />
+          <img src={url} alt="Mythio milestone card" style={{ width: "100%", borderRadius: 6, border: "1px solid var(--border-strong)" }} />
         ) : (
           <div className="muted">Painting your brag card…</div>
         )}

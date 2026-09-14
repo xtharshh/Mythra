@@ -1,8 +1,8 @@
-// MYTHRA mark — a hexagonal portal ring with a rising world + orbit spark.
+// Mythio mark — a hexagonal portal ring with a rising world + orbit spark.
 // Unique to this game: hex = forged stories, ring = worlds, spark = solvers.
 export function Logo({ size = 30 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-label="MYTHRA logo" style={{ flex: "none" }}>
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-label="Mythio logo" style={{ flex: "none" }}>
       <defs>
         <linearGradient id="mythra-g" x1="6" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#ffd9a8" />

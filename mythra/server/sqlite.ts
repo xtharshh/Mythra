@@ -1,4 +1,4 @@
-// MYTHRA backend store — SQLite (node:sqlite, zero deps) with proper
+// Mythio backend store — SQLite (node:sqlite, zero deps) with proper
 // tables + indexes for the important metadata. File lives at
 // server/.data/mythra.db (gitignored). First boot migrates any legacy
 // server/.data/*.json tables, then archives them to .data/migrated/.
@@ -18,7 +18,15 @@ export function createSqliteStore(dbPath?: string): Store {
     /* read-only FS (serverless) — caller should use Postgres instead */
   }
   const DB_PATH = dbPath ?? process.env.MYTHRA_DB ?? join(dir, "mythra.db");
-  const db = new DatabaseSync(DB_PATH);
+  let db: DatabaseSync;
+  try {
+    db = new DatabaseSync(DB_PATH);
+  } catch {
+    // read-only filesystems (misconfigured serverless): memory keeps the API
+    // answering instead of crashing — data won't persist, so set DATABASE_URL
+    console.warn("SQLite file unavailable — running on an ephemeral memory store. Set DATABASE_URL for persistence.");
+    db = new DatabaseSync(":memory:");
+  }
 
   // production footing: concurrent readers never block, writers wait (not fail)
   try {

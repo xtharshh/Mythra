@@ -1,5 +1,5 @@
 // Leaderboard (multiplayer): top solvers per tale, usernames on the wall.
-// Reads the MYTHRA API when connected; otherwise points at local play.
+// Reads the Mythio API when connected; otherwise points at local play.
 import { useEffect, useState } from "react";
 import { api, apiOn } from "../api/client";
 import type { BoardEntry } from "../api/client";
@@ -29,7 +29,7 @@ export function Leaderboard({ worldId, worldName }: { worldId: string; worldName
       <div className="hud-panel">
         <div className="row"><b><Icon name="spark" size={14} /> Leaderboard</b><span className="pill">local</span></div>
         <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-          {local} local {local === 1 ? "run" : "runs"} on this browser. Connect the MYTHRA API
+          {local} local {local === 1 ? "run" : "runs"} on this browser. Connect the Mythio API
           (<span className="dossier-meta">VITE_API_URL + npm run dev:api</span>) for the shared wall of usernames.
         </div>
       </div>

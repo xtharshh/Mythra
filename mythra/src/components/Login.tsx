@@ -1,10 +1,11 @@
 // Simple email login UI (skills.md G10): dossier-styled sign-in modal.
-// No password — 6-digit code. Uses the MYTHRA API when connected,
+// No password — 6-digit code. Uses the Mythio API when connected,
 // otherwise fully local. Either way the session namespaces saves.
 import { useEffect, useState } from "react";
 import { clearSession, isDiscordSession, isValidEmail, loadEntryChoice, loadSession, normalizeEmail, requestLoginCode, saveEntryChoice, SESSION_EVENT, verifyLoginCode } from "../auth/auth";
 import type { AuthSession, EntryMode } from "../auth/auth";
 import { api, apiOn, discordLoginUrl, pingApi, setApiToken } from "../api/client";
+import { t, useLang } from "../i18n/lang";
 import { useLumen } from "../state/store";
 import { Icon } from "./icons";
 
@@ -15,6 +16,7 @@ export function useAuthSession(): { session: AuthSession | null; refresh: () => 
 
 /** First-run gate: offline solo flight, or online party via Discord. */
 export function EntryModal({ onPick, onClose }: { onPick: (mode: EntryMode) => void; onClose: () => void }) {
+  const { lang } = useLang();
   // online works against same-origin or configured APIs and degrades
   // gracefully offline — no gatekeeping here, the flows explain themselves
   const online = () => {
@@ -28,19 +30,19 @@ export function EntryModal({ onPick, onClose }: { onPick: (mode: EntryMode) => v
   return (
     <div className="modal-back">
       <div className="modal card" style={{ width: "min(560px, 94vw)", textAlign: "center", position: "relative" }}>
-        <button className="btn-ghost" style={{ position: "absolute", top: 22, right: 10, padding: "0 8px" }} title="Close" onClick={onClose}>✕</button>
-        <div className="case-kicker">Welcome to MYTHRA · first descent</div>
-        <h2 className="case-title" style={{ fontSize: 32 }}>How do you <em>fly?</em></h2>
-        <p className="muted">Solo expedition on this machine — or online party with Discord sign-in, races, and shared skies.</p>
+        <button className="btn-ghost" style={{ position: "absolute", top: 22, right: 10, padding: "0 8px" }} title={t("entry.close", lang)} onClick={onClose}>✕</button>
+        <div className="case-kicker">{t("entry.kicker", lang)}</div>
+        <h2 className="case-title" style={{ fontSize: 32 }}>{t("entry.titleA", lang)} <em>{t("entry.titleB", lang)}</em></h2>
+        <p className="muted">{t("entry.sub", lang)}</p>
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 12 }}>
           <button className="btn btn-big" onClick={offline}>
-            <Icon name="planet" size={16} /> Play offline
+            <Icon name="planet" size={16} /> {t("entry.offline", lang)}
           </button>
           <button className="btn btn-big" onClick={online} style={{ background: "linear-gradient(180deg, #7289da, #5865F2)" }}>
-            <Icon name="discord" size={16} /> Play online
+            <Icon name="discord" size={16} /> {t("entry.online", lang)}
           </button>
         </div>
-        <div className="dossier-meta" style={{ marginTop: 8 }}>offline = solo + local saves · online = Discord sign-in + races + leaderboard</div>
+        <div className="dossier-meta" style={{ marginTop: 8 }}>{t("entry.offHint", lang)} · {t("entry.onHint", lang)}</div>
       </div>
     </div>
   );
@@ -48,6 +50,7 @@ export function EntryModal({ onPick, onClose }: { onPick: (mode: EntryMode) => v
 
 export function LoginModal({ onClose }: { onClose: () => void }) {
   const { pushLog, loadCheckpoints } = useLumen();
+  const { lang } = useLang();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -68,6 +71,11 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
+  const recheckApi = () => {
+    setApiLive(null);
+    void pingApi().then((ms) => setApiLive(ms !== null)).catch(() => setApiLive(false));
+  };
+
   const send = async () => {
     setErr("");
     if (!isValidEmail(email)) {
@@ -84,7 +92,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
             setDemoCode(r.code);
             setViaApi(true);
             setApiLive(true);
-            pushLog(`Sign-in code sent to ${r.email} (via MYTHRA API).`);
+            pushLog(`Sign-in code sent to ${r.email} (via Mythio API).`);
             return;
           }
         } catch {
@@ -136,12 +144,12 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal card" onClick={(e) => e.stopPropagation()}>
-        <div className="case-kicker">Explorer sign-in · no password</div>
-        <h3 style={{ margin: "8px 0 4px", textTransform: "uppercase", letterSpacing: 1 }}>File under your name</h3>
+        <div className="case-kicker">{t("login.kicker", lang)}</div>
+        <h3 style={{ margin: "8px 0 4px", textTransform: "uppercase", letterSpacing: 1 }}>{t("login.title", lang)}</h3>
         <p className="muted" style={{ fontSize: 13 }}>
-          Enter your email, confirm the 6-digit code, and progress saves + checkpoints file under you instead of guest.
+          {t("login.sub", lang)}
         </p>
-        <label>Email</label>
+        <label>{t("login.email", lang)}</label>
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -154,13 +162,13 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
         />
         <div className="row" style={{ marginTop: 10 }}>
           <button className="btn" disabled={busy || !email.trim()} onClick={send}>
-            <Icon name="arrow" /> {busy ? "Sending…" : "Send code"}
+            <Icon name="arrow" /> {busy ? t("login.sending", lang) : t("login.send", lang)}
           </button>
-          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-ghost" onClick={onClose}>{t("login.cancel", lang)}</button>
         </div>
         {sentTo && (
           <>
-            <label>6-digit code (sent to {sentTo})</label>
+            <label>{t("login.code", lang)} (sent to {sentTo})</label>
             <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="123456" inputMode="numeric" />
             {demoCode && (
               <div className="dossier-meta" style={{ marginTop: 6 }}>
@@ -168,19 +176,24 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
             <div className="row" style={{ marginTop: 10 }}>
-              <button className="btn" onClick={confirm}><Icon name="check" /> Verify + sign in</button>
-              <button className="btn-ghost" onClick={send}>Resend</button>
+              <button className="btn" onClick={confirm}><Icon name="check" /> {t("login.verify", lang)}</button>
+              <button className="btn-ghost" onClick={send}>{t("login.resend", lang)}</button>
             </div>
           </>
         )}
         {err && <div style={{ color: "var(--red)", fontSize: 13, marginTop: 8 }}>{err}</div>}
         <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-          <div className="dossier-meta" style={{ marginBottom: 6 }}>or skip the code —</div>
+          <div className="dossier-meta" style={{ marginBottom: 6 }}>{t("login.skip", lang)}</div>
           {apiLive === false ? (
-            <div className="muted" style={{ fontSize: 12 }}>Discord sign-in needs the API online — play offline, or start it.</div>
+            <div>
+              <div className="muted" style={{ fontSize: 12 }}>{t("login.offlineNote", lang)}</div>
+              <div className="row" style={{ marginTop: 6 }}>
+                <button className="btn-ghost" style={{ padding: "2px 10px" }} onClick={recheckApi}>{t("login.retry", lang)}</button>
+              </div>
+            </div>
           ) : (
             <a className="btn" style={{ display: "inline-flex", gap: 8, alignItems: "center", background: "#5865F2", color: "#fff", borderColor: "#2b2f6b" }} href={discordLoginUrl()!} title="Sign in with Discord — username shows everywhere">
-              <Icon name="discord" size={15} /> Sign in with Discord
+              <Icon name="discord" size={15} /> {t("login.discord", lang)}
             </a>
           )}
         </div>
@@ -191,6 +204,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
 
 export function AuthButton({ onSignIn }: { onSignIn: () => void }) {
   const { pushLog, loadCheckpoints } = useLumen();
+  const { lang } = useLang();
   const [session, setSession] = useState<AuthSession | null>(() => loadSession());
   const [profileOpen, setProfileOpen] = useState(false);
   // follow logins/logouts live (same tab event + other tabs), no reload
@@ -209,7 +223,7 @@ export function AuthButton({ onSignIn }: { onSignIn: () => void }) {
   if (!session) {
     return (
       <button className="btn-ghost" title="Sign in with email — saves file under you" onClick={onSignIn}>
-        Sign in
+        {t("nav.signin", lang)}
       </button>
     );
   }

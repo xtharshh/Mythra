@@ -643,7 +643,7 @@ export default function Play() {
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
           <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
-          <div className="ping-chip" title={apiOn() ? "Live link to the MYTHRA API (10s ping)" : "Offline — playing local"}>
+          <div className="ping-chip" title={apiOn() ? "Live link to the Mythio API (10s ping)" : "Offline — playing local"}>
             <span className="blink" />ping {formatPing(ping, apiOn())}
           </div>
           {target && (

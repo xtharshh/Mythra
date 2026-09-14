@@ -1,4 +1,4 @@
-// MYTHRA API client — talks to the Fastify backend when VITE_API_URL is set,
+// Mythio API client — talks to the Fastify backend when VITE_API_URL is set,
 // otherwise every call resolves local-only (null) and the game plays offline.
 // Auth token lives in localStorage next to the email session.
 import type { Contribution, World, WorldVersion } from "../types";

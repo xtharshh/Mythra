@@ -88,7 +88,7 @@ export function parseInvite(raw: string): InvitePayload {
   }
   const p = data as Partial<InvitePayload>;
   if (p.v !== 1 || typeof p.code !== "string" || typeof p.room !== "string") {
-    throw new Error("That invite link isn't a MYTHRA party — ask the host to resend it.");
+    throw new Error("That invite link isn't a Mythio party — ask the host to resend it.");
   }
   return { v: 1, room: p.room, code: p.code };
 }

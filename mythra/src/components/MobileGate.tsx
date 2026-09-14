@@ -3,6 +3,7 @@
 // (copy-link included) or continue anyway. Dismissal lasts the session.
 import { useState } from "react";
 import { Icon } from "./icons";
+import { t, useLang } from "../i18n/lang";
 
 const GATE_KEY = "mythra-mobile-gate";
 
@@ -40,6 +41,7 @@ export function isMobileDevice(): boolean {
 }
 
 export function MobileGate({ onContinue }: { onContinue: () => void }) {
+  const { lang } = useLang();
   const [copied, setCopied] = useState(false);
   const copyLink = async () => {
     try {
@@ -56,25 +58,24 @@ export function MobileGate({ onContinue }: { onContinue: () => void }) {
       <div className="intro-card card cine-frame">
         <div className="row">
           <span className="eq"><i /><i /><i /><i /></span>
-          <span className="pill amber">⚠ priority transmission</span>
+          <span className="pill amber">{t("gate.pill", lang)}</span>
         </div>
-        <div className="case-kicker" style={{ marginTop: 8 }}>Handheld detected · suit systems limited</div>
-        <h1 className="intro-title" style={{ fontSize: 32 }}>Fly this on <em>desktop.</em></h1>
+        <div className="case-kicker" style={{ marginTop: 8 }}>{t("gate.kicker", lang)}</div>
+        <h1 className="intro-title" style={{ fontSize: 32 }}>{t("gate.titleA", lang)} <em>{t("gate.titleB", lang)}</em></h1>
         <p className="intro-text" style={{ minHeight: 0 }}>
-          Explorer, your rig is handheld — the Surface needs a PC browser, a real
-          keyboard, and room to breathe. Send this link to your desktop, then descend in full.
+          {t("gate.text", lang)}
         </p>
         <div className="row" style={{ marginTop: 6 }}>
           <span style={{ color: "var(--th-accent)", display: "inline-flex" }}><Icon name="planet" size={16} /></span>
-          <span className="dossier-meta">WASD · mouse-look · E — a touch screen can't fly this</span>
+          <span className="dossier-meta">{t("gate.keys", lang)}</span>
         </div>
         <div className="row" style={{ marginTop: 14 }}>
           <button className="btn" onClick={() => void copyLink()}>
-            <Icon name="signal" size={13} /> {copied ? "Link copied" : "Copy PC link"}
+            <Icon name="signal" size={13} /> {copied ? t("gate.copied", lang) : t("gate.copy", lang)}
           </button>
-          <button className="btn-ghost" onClick={onContinue}>Continue anyway</button>
+          <button className="btn-ghost" onClick={onContinue}>{t("gate.continue", lang)}</button>
         </div>
-        <div className="dossier-meta" style={{ marginTop: 8 }}>Desktop expedition app: in the hangar — this notice lifts for the session.</div>
+        <div className="dossier-meta" style={{ marginTop: 8 }}>{t("gate.soon", lang)}</div>
       </div>
       <div className="cine-bar bottom" />
     </div>

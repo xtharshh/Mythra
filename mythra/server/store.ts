@@ -1,4 +1,4 @@
-// MYTHRA store contract — every backend (SQLite local, Postgres/Neon on
+// Mythio store contract — every backend (SQLite local, Postgres/Neon on
 // Vercel) implements these 28 methods. Routes only ever touch `Store`,
 // so swapping databases never touches game logic.
 export interface RaceRow {

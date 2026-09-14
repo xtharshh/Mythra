@@ -52,7 +52,7 @@ export function AudioTestModal({ onClose }: { onClose: () => void }) {
     const s = loadVoiceSettings();
     setToneMsg("Sending…");
     const ok = speakDetailed(
-      "Mythra audio check. If you hear this, the speaker path works.",
+      "Mythio audio check. If you hear this, the speaker path works.",
       { ...s, enabled: true },
       {
         onStart: () => setToneMsg("Playing now — sound should be audible."),

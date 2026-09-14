@@ -17,7 +17,7 @@ describe("party invites", () => {
 
   it("rejects garbage links readably", () => {
     expect(() => parseInvite("%%%")).toThrow(/resend/i);
-    expect(() => parseInvite(btoa("{\"v\":2}"))).toThrow(/MYTHRA party/i);
+    expect(() => parseInvite(btoa("{\"v\":2}"))).toThrow(/Mythio party/i);
   });
 
   it("short links stay pocket-sized and validate room ids", () => {

@@ -268,7 +268,7 @@ export function endpointFor(cfg: AIConfig): string {
 /** System contract: JSON-only world compiler brief. Pure — tested. */
 export function buildWorldPrompt(input: WorldGenerationInput): { system: string; user: string } {
   const system = [
-    "You are MYTHRA's world compiler. Output ONLY a single JSON object — no prose, no fences. (Reply in json.)",
+    "You are Mythio's world compiler. Output ONLY a single JSON object — no prose, no fences. (Reply in json.)",
     "Copy every enum EXACTLY as listed — invented values are rejected. Conditions are always OBJECTS like {type:'all',conditions:[]} — never strings, never missing.",
     "Shape: {id, ownerId:'ai-director', name, slug, description, theme(mars|space|ocean|forest|fantasy|cyberpunk|ancient_ruins|desert|horror|post_apocalyptic|custom), status:'draft', visibility:'private', difficulty(beginner|easy|medium|hard|expert), version:1,",
     "environment:{type(same 11 theme ids),skyColor hex,fogColor hex,primaryColor hex,secondaryColor hex,gravity number,atmosphere(normal|thin|underwater|none),weather(clear|rain|snow|fog|dust_storm|storm|none),timeOfDay(day|night|sunset|dynamic),terrainSeed int,ambientIntensity 0..1},",
@@ -708,7 +708,7 @@ export interface ChapterDraftInput {
 /** Prompt contract for one continued chapter. Pure — tested. */
 export function buildChapterPrompt(input: ChapterDraftInput): { system: string; user: string } {
   const system = [
-    "You are MYTHRA's story continuer. Write ONE continuation for a living game tale.",
+    "You are Mythio's story continuer. Write ONE continuation for a living game tale.",
     "Output ONLY a single JSON object — no prose, no fences. (Reply in json.)",
     'Shape: {title (≤80 chars, evocative, never "Untitled"), text (10–5000 chars, second person, concrete sights and sounds, no stage directions)}.',
   ].join("\n");

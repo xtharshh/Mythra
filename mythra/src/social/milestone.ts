@@ -14,7 +14,7 @@ export interface MilestoneStats {
 }
 
 export function milestoneText(s: MilestoneStats): string {
-  return `I solved "${s.worldName}" on MYTHRA — ${s.missions}/${s.missionsTotal} missions, ${s.clues}/${s.cluesTotal} clues. Think you can beat ${s.user}?`;
+  return `I solved "${s.worldName}" on Mythio — ${s.missions}/${s.missionsTotal} missions, ${s.clues}/${s.cluesTotal} clues. Think you can beat ${s.user}?`;
 }
 
 export function milestoneLinks(text: string, url: string): { label: string; href: string }[] {
@@ -58,7 +58,7 @@ export async function paintMilestoneCard(s: MilestoneStats, ground = "#c1553b"):
   }
   g.fillStyle = "#ffb45e";
   g.font = "bold 34px monospace";
-  g.fillText("MYTHRA · CASE CLOSED", 70, 100);
+  g.fillText("Mythio · CASE CLOSED", 70, 100);
   g.fillStyle = "#fff3e0";
   g.font = "bold 72px Georgia, serif";
   const title = s.worldName.toUpperCase().slice(0, 26);
@@ -87,9 +87,9 @@ export async function paintMilestoneCard(s: MilestoneStats, ground = "#c1553b"):
 export async function nativeShareCard(blob: Blob, text: string): Promise<boolean> {
   try {
     const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
-    const file = new File([blob], "mythra-milestone.png", { type: "image/png" });
+    const file = new File([blob], "mythio-milestone.png", { type: "image/png" });
     if (nav.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: "MYTHRA milestone", text });
+      await navigator.share({ files: [file], title: "Mythio milestone", text });
       return true;
     }
   } catch {

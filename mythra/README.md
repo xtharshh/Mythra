@@ -1,4 +1,4 @@
-# MYTHRA · `mythra/` app — forge any story into a playable world
+# Mythio · `mythra/` app — forge any story into a playable world
 
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=20&pause=1000&color=FFB45E&width=600&lines=Inspect.+Collect.+Solve.;Unlock+the+hidden+zone.;Mint+the+milestone+card.)](https://github.com/xtharshh/apexus-trending)
 
@@ -12,7 +12,7 @@ Browser 3D mystery game engine: any genre, any story in — interactive realisti
 
 ## License — proprietary, all rights reserved
 
-MYTHRA is NOT open source. See [`LICENSE`](../LICENSE) at repo root: no use, copying, distribution, or derivatives without xtharshh's written permission. Playing the hosted game is allowed; everything else needs a yes in writing.
+Mythio is NOT open source. See [`LICENSE`](../LICENSE) at repo root: no use, copying, distribution, or derivatives without xtharshh's written permission. Playing the hosted game is allowed; everything else needs a yes in writing.
 
 ## Setup
 
@@ -35,7 +35,7 @@ presence avatars, the username leaderboard, and cloud saves:
 ```bash
 cd mythra
 cp .env.example .env   # VITE_API_URL=http://localhost:4000 (already set)
-npm run dev:api        # terminal 1 — MYTHRA API on :4000
+npm run dev:api        # terminal 1 — Mythio API on :4000
 npm run dev            # terminal 2 — game on :5173 (restart after editing .env)
 ```
 

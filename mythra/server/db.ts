@@ -1,4 +1,4 @@
-// MYTHRA backend store selector — SQLite locally, Postgres (Neon) when
+// Mythio backend store selector — SQLite locally, Postgres (Neon) when
 // DATABASE_URL is set (Vercel). Routes only see the `Store` contract.
 import { createPgStore } from "./pg.js";
 import { createSqliteStore, migrateFromJson } from "./sqlite.js";

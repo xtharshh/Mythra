@@ -191,7 +191,7 @@ export default function Create() {
         </div>
       )}
       <div className="console" style={{ marginTop: 14 }}>
-        <div className="console-bar"><i style={{ background: "#ff5a5a" }} /><i style={{ background: "#fbbf24" }} /><i style={{ background: "#7ddf9a" }} /> MYTHRA PLANNER · DRAFT BRIEF</div>
+        <div className="console-bar"><i style={{ background: "#ff5a5a" }} /><i style={{ background: "#fbbf24" }} /><i style={{ background: "#7ddf9a" }} /> Mythio PLANNER · DRAFT BRIEF</div>
         <div className="console-body">
           <label>Story title (optional — blank lets the AI name it)</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. The silent Mars colony" autoComplete="off" />
