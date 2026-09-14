@@ -1,15 +1,17 @@
-/* LUMEN theme-first site (§11): Mars mission dossier, not AI SaaS.
+/* MYTHRA theme-first site: Mars mission dossier, not AI SaaS.
    Theme vars (--th-*) are set per-world by src/theme/theme.ts from
    world.environment (sky/fog/ground). Every page wears the same dust
-   the 3D scene renders. */
+   the 3D scene renders.
+   Type: professional system sans for reading; monospace reserved for
+   data readouts (ticker, kickers, keycaps). */
 :root {
   --bg: #0b0605;
   --panel: rgba(24, 12, 8, 0.82);
   --panel-solid: #1c0f0a;
   --border: rgba(255, 180, 94, 0.22);
   --border-strong: rgba(255, 180, 94, 0.5);
-  --text: #f3e7d3;
-  --muted: #c9a98a;
+  --text: #f5ecdd;
+  --muted: #d3bda1;
   --cyan: #ffb45e;
   --violet: #ff6b35;
   --amber: #fbbf24;
@@ -22,7 +24,9 @@
   --th-ground: #c1553b;
   --th-hero: radial-gradient(900px 420px at 78% 8%, rgba(255, 107, 53, 0.35) 0%, transparent 60%), radial-gradient(1200px 800px at 70% -10%, #3b1428 0%, #160a1e 55%, #070714 100%);
   --th-planet: radial-gradient(circle at 32% 30%, #ffb08a 0%, #c1553b 38%, #7c2d1e 68%, #2b0f0a 100%);
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font: system-ui, -apple-system, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-data: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--font);
   color: var(--text);
   background: var(--th-hero), var(--bg);
   background-attachment: fixed;
@@ -31,11 +35,14 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
   /* dust-grain over everything: mission paper, not SaaS gradient */
   background-image: radial-gradient(rgba(255, 180, 94, 0.05) 1px, transparent 1px);
   background-size: 5px 5px;
 }
+h1, h2, h3, b { letter-spacing: 0.2px; }
 #root { min-height: 100vh; }
 a { color: var(--th-accent); text-decoration: none; }
 button, input, select, textarea { font: inherit; }
@@ -133,7 +140,7 @@ button, input, select, textarea { font: inherit; }
   font-family: ui-monospace, Menlo, monospace; font-size: 12px;
   color: var(--muted); letter-spacing: 1px;
 }
-.pill { font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+.pill { font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; color: var(--muted); font-weight: 600; }
 .pill.cyan { color: var(--th-accent); border-color: var(--th-accent); }
 .pill.amber { color: var(--amber); border-color: var(--amber); }
 .pill.green { color: var(--green); border-color: var(--green); }
@@ -141,9 +148,9 @@ button, input, select, textarea { font: inherit; }
 /* ---- buttons: stencil plates, not SaaS gradients ---- */
 .btn {
   background: linear-gradient(180deg, var(--th-accent), var(--th-accent2));
-  border: 1px solid #2b1006; color: #22100a; font-weight: 800;
-  padding: 10px 18px; border-radius: 4px; cursor: pointer;
-  font-family: ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: 1.5px;
+  border: 1px solid #2b1006; color: #22100a; font-weight: 700;
+  padding: 10px 18px; border-radius: 6px; cursor: pointer;
+  font-size: 14px;
   box-shadow: 0 3px 0 #4a1e08, 0 8px 20px rgba(0, 0, 0, 0.5);
   transition: transform 0.12s ease, box-shadow 0.2s;
 }
@@ -153,8 +160,8 @@ button, input, select, textarea { font: inherit; }
 .btn-big { font-size: 15px; padding: 13px 26px; }
 .btn-ghost {
   background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-strong);
-  color: var(--text); padding: 9px 16px; border-radius: 4px; cursor: pointer;
-  font-family: ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: 1px; font-size: 12px;
+  color: var(--text); padding: 8px 14px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; font-weight: 600;
 }
 .btn-ghost:hover { border-color: var(--th-accent); color: var(--th-accent); }
 
@@ -179,10 +186,10 @@ button, input, select, textarea { font: inherit; }
 
 input, select, textarea {
   background: rgba(0, 0, 0, 0.6); border: 1px solid var(--border-strong);
-  color: var(--text); border-radius: 4px; padding: 10px 12px; width: 100%;
-  font-family: ui-monospace, Menlo, monospace;
+  color: var(--text); border-radius: 6px; padding: 10px 12px; width: 100%;
+  font-size: 14px;
 }
-label { font-size: 12px; color: var(--th-accent); display: block; margin: 10px 0 4px; font-family: ui-monospace, Menlo, monospace; letter-spacing: 1.5px; text-transform: uppercase; }
+label { font-size: 13px; font-weight: 600; color: var(--text); display: block; margin: 10px 0 4px; }
 .hud-panel { background: rgba(13, 7, 5, 0.92); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
 .modal-back { position: fixed; inset: 0; background: rgba(5, 2, 1, 0.72); display: flex; align-items: center; justify-content: center; z-index: 50; }
 .modal { width: min(520px, 92vw); }

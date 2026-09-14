@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import LumenScene from "../three/LumenScene";
 import type { World, WorldObject } from "../types";
 import demo from "../data/demo-world.json";
-import { canDiscoverClue, isMissionComplete, validateWorld } from "../game/engines";
+import { canDiscoverClue, isMissionComplete } from "../game/engines";
 import { evaluateCondition } from "../game/conditions";
 import { useLumen } from "../state/store";
 import { ChaptersPanel, ContributeModal } from "../components/Community";
@@ -10,6 +10,7 @@ import { DialogueModal, LAB_BEAT, MISSION_BEATS, StoryIntro, Toasts, Transmissio
 import type { Beat, Toast } from "../components/Story";
 import { EventLog, Inventory, Journal, MissionTracker, PuzzleModal } from "../components/Hud";
 import { CheckpointPanel } from "../components/Checkpoints";
+import { WorldMap } from "../components/WorldMap";
 import { VoiceLibrary, VoiceNotes } from "../components/VoiceNotes";
 import {
   isTtsSupported, isVoiceInputSupported, loadVoiceSettings, parseVoiceCommand,
@@ -45,6 +46,8 @@ export default function Play() {
   const [milestone, setMilestone] = useState<MilestoneStats | null>(null);
   const [showAudio, setShowAudio] = useState(false);
   const [sound, setSound] = useState(() => sfxOn());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [sideTab, setSideTab] = useState<"missions" | "map" | "journal" | "voice" | "system">("missions");
   const stopListenRef = useRef<(() => void) | null>(null);
   const shownBeats = useRef(new Set<string>());
   const toastId = useRef(0);
@@ -221,7 +224,6 @@ export default function Play() {
   }, [s.world?.id, s.completedMissions, s.discoveredClues]);
 
   const world = s.world ?? (structuredClone(demo) as unknown as World);
-  const report = useMemo(() => validateWorld(world), [world]);
   const puzzle = world.puzzles.find((p) => p.id === puzzleId) ?? null;
 
   const interact = (obj: WorldObject) => {
@@ -369,40 +371,41 @@ export default function Play() {
     <div style={{ height: "calc(100vh - 57px)", display: "flex", flexDirection: "column" }}>
       <div className="row" style={{ padding: "8px 14px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
         <b>{world.name}</b>
-        <span className={`pill ${report.valid ? "green" : "amber"}`}>{report.valid ? "valid" : `${report.errors.length} errors`}</span>
-        <span className="muted">{s.reachedLocations.length}/{world.locations.length} locations · {s.completedMissions.length}/{world.missions.length} missions</span>
+        <span className="muted">{s.reachedLocations.length}/{world.locations.length} sites · {s.completedMissions.length}/{world.missions.length} missions</span>
         <span style={{ flex: 1 }} />
-        <button className="btn" onClick={() => setShowContribute(true)}>＋ Continue story</button>
+        <button className="btn" onClick={() => setShowContribute(true)}>Continue story</button>
         <button
           className={voice.enabled ? "btn" : "btn-ghost"}
-          title={isTtsSupported() ? "Toggle voice narration (speech synthesis)" : "Voice TTS not supported in this browser"}
+          title={isTtsSupported() ? "Toggle voice narration" : "Voice not supported in this browser"}
           onClick={toggleVoice}
         >
-          {voice.enabled ? "🔊 Voice" : "🔈 Voice"}
+          {voice.enabled ? "Voice on" : "Voice off"}
         </button>
         <button
           className={listening ? "btn" : "btn-ghost"}
           title={isVoiceInputSupported() ? 'Voice commands: "collect", "fly", "save", "read log"' : "Voice input not supported — use E / click"}
           onClick={toggleMic}
         >
-          {listening ? "🎙️ Listening…" : "🎙️ Mic"}
+          {listening ? "Listening…" : "Mic"}
         </button>
         <button className={flyMode ? "btn" : "btn-ghost"} title={hasSuit ? "Toggle flight (F)" : "Find the flight suit first"} onClick={toggleFly}>
-          {flyMode ? "🛰️ Flying" : "🛰️ Fly"}
+          {flyMode ? "Flying" : "Fly"}
         </button>
-        <button className="btn-ghost" onClick={() => s.save()}>Save</button>
-        <button className="btn-ghost" onClick={() => s.load()}>Load</button>
-        <button className="btn-ghost" title="Remap every action to your own keys" onClick={() => setShowControls(true)}>Controls</button>
-        <button
-          className={sound ? "btn-ghost" : "btn-ghost"}
-          title="Toggle button + object sounds"
-          onClick={toggleSound}
-          style={sound ? undefined : { opacity: 0.55 }}
-        >
-          {sound ? "Sound on" : "Muted"}
-        </button>
-        <button className="btn-ghost" title="Prove speaker + mic work on this machine" onClick={() => setShowAudio(true)}>Audio test</button>
-        <button className="btn-ghost" onClick={() => s.reset()}>Reset</button>
+        <div style={{ position: "relative" }}>
+          <button className="btn-ghost" title="Save, checkpoints, controls, audio" onClick={() => setMenuOpen((v) => !v)}>Menu</button>
+          {menuOpen && (
+            <div className="hud-panel" style={{ position: "absolute", right: 0, top: 44, zIndex: 20, minWidth: 190, display: "flex", flexDirection: "column", gap: 6 }}>
+              <button className="btn-ghost" onClick={() => { s.save(); setMenuOpen(false); }}>Save run</button>
+              <button className="btn-ghost" onClick={() => { s.load(); setMenuOpen(false); }}>Load run</button>
+              <button className="btn-ghost" title="Remap every action to your own keys" onClick={() => { setShowControls(true); setMenuOpen(false); }}>Controls</button>
+              <button className="btn-ghost" title="Prove speaker + mic work" onClick={() => { setShowAudio(true); setMenuOpen(false); }}>Audio test</button>
+              <button className="btn-ghost" title="Toggle button + object sounds" onClick={toggleSound} style={sound ? undefined : { opacity: 0.55 }}>
+                {sound ? "Sound on" : "Muted"}
+              </button>
+              <button className="btn-ghost" onClick={() => { s.reset(); setMenuOpen(false); }}>Reset world</button>
+            </div>
+          )}
+        </div>
       </div>
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
         <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
@@ -421,18 +424,23 @@ export default function Play() {
         <div style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "auto" }}>
           {target && (
             <div className="hud-panel">
-              <div className="row"><b>◉ At crosshair</b><span className="pill cyan">{target.name}</span></div>
+              <div className="row"><b>At crosshair</b><span className="pill cyan">{target.name}</span></div>
               <div className="muted" style={{ fontSize: 12 }}>{target.description}</div>
               <VoiceNotes worldId={world.id} targetKind="object" targetId={target.id} label={target.name} compact />
             </div>
           )}
-          <MissionTracker world={world} />
-          <Inventory world={world} />
-          <Journal world={world} />
-          <ChaptersPanel world={world} />
-          <CheckpointPanel worldId={world.id} />
-          <VoiceLibrary worldId={world.id} />
-          <EventLog />
+          <div className="row" style={{ gap: 6 }}>
+            {(["missions", "map", "journal", "voice", "system"] as const).map((t) => (
+              <button key={t} className={sideTab === t ? "btn" : "btn-ghost"} style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setSideTab(t)}>
+                {t === "missions" ? `Missions ${s.completedMissions.length}/${world.missions.length}` : t === "map" ? "Map" : t === "journal" ? `Journal ${s.discoveredClues.length}/${world.clues.length}` : t === "voice" ? "Voice" : "System"}
+              </button>
+            ))}
+          </div>
+          {sideTab === "missions" && (<><MissionTracker world={world} /><Inventory world={world} /></>)}
+          {sideTab === "map" && <WorldMap world={world} playerPos={s.playerPos} reached={s.reachedLocations} />}
+          {sideTab === "journal" && (<><Journal world={world} /><ChaptersPanel world={world} /></>)}
+          {sideTab === "voice" && <VoiceLibrary worldId={world.id} />}
+          {sideTab === "system" && (<><CheckpointPanel worldId={world.id} /><EventLog /></>)}
         </div>
       </div>
       {puzzle && <PuzzleModal puzzle={puzzle} onClose={() => { setPuzzleId(null); setTimeout(checkMissions, 50); }} />}

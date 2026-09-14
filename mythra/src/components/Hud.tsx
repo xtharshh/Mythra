@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { Puzzle, World } from "../types";
 import { checkPuzzleAnswer } from "../game/engines";
+import { discoverVerb } from "../game/credits";
 import { useLumen } from "../state/store";
 import { DictateButton, VoiceNotes } from "./VoiceNotes";
 
@@ -46,7 +47,18 @@ export function Journal({ world }: { world: World }) {
         <button className="btn-ghost" onClick={() => setOpen(false)}>Hide</button></div>
       {world.clues.map((c) => {
         const found = discoveredClues.includes(c.id);
-        if (!found) return <div key={c.id} className="muted" style={{ fontSize: 13, marginTop: 6 }}>▓▓ {c.importance === "critical" ? "critical" : c.type} — undiscovered</div>;
+        if (!found) {
+          // anti-spoiler row that still teaches: WHAT it is + HOW to reveal it
+          const objName = c.objectId ? world.objects.find((o) => o.id === c.objectId)?.name : null;
+          const locName = world.locations.find((l) => l.id === c.locationId)?.name;
+          const how = objName ? `${discoverVerb(c.discoveryMethod)} the ${objName}` : `Explore ${locName ?? "the world"}`;
+          return (
+            <div key={c.id} className="muted" style={{ fontSize: 13, marginTop: 6 }}>
+              ▓▓ {c.importance === "critical" ? "critical" : c.type} — undiscovered
+              <div style={{ fontSize: 12 }}>Hint: {how}</div>
+            </div>
+          );
+        }
         return (
           <div key={c.id} style={{ marginTop: 8, fontSize: 13 }}>
             <b>{c.title}</b> <span className="pill">{c.type}</span>

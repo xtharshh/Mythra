@@ -7,6 +7,7 @@ import {
   isRecordingSupported, makeVoiceNoteId, recordVoiceClip, revokeVoiceNoteURL,
 } from "../audio/voiceNotes";
 import type { VoiceNoteMeta, VoiceTargetKind } from "../audio/voiceNotes";
+import { explorerName } from "../game/credits";
 import { useLumen } from "../state/store";
 import { Icon } from "./icons";
 
@@ -90,7 +91,7 @@ export function VoiceNoteRecorder({ worldId, targetKind, targetId, label, compac
               targetKind,
               targetId,
               label: label.slice(0, 80),
-              author: "you",
+              author: explorerName(),
               createdAt: new Date().toISOString(),
               durationSec,
               mime,
@@ -271,7 +272,7 @@ function VoiceLibraryRow({ clip, worldId }: { clip: VoiceNoteMeta; worldId: stri
   return (
     <div style={{ fontSize: 13, borderTop: "1px solid var(--border)", paddingTop: 6 }}>
       <span className="pill">{clip.targetKind}</span> <b>{clip.label}</b>{" "}
-      <span className="muted">{clip.durationSec}s · {new Date(clip.createdAt).toLocaleString()}</span>
+      <span className="muted">by {clip.author} · {clip.durationSec}s · {new Date(clip.createdAt).toLocaleString()}</span>
       <div className="row" style={{ marginTop: 4 }}>
         {url ? <audio controls preload="metadata" src={url} style={{ height: 28, maxWidth: 240 }} /> : <span className="muted">loading…</span>}
         <button className="btn-ghost" style={{ padding: "0 6px" }} onClick={() => void remove()}>✕</button>

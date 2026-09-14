@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { forkWorld } from "../community/continuity";
 import { exportWorldCode, importWorldCode } from "../game/share";
+import { ownerLabel } from "../game/credits";
 import { useLumen } from "../state/store";
 import { Leaderboard } from "../components/Leaderboard";
 import { Icon } from "../components/icons";
@@ -155,6 +156,7 @@ export default function Explore() {
                 <div>
                   <b>{w.name}</b>{" "}
                   <span className="stamp">{published ? "open to solvers" : "draft · only you"}</span>
+                  <div className="muted" style={{ fontSize: 13 }}>by <b>{ownerLabel(w.ownerId)}</b> · {w.theme} · {w.difficulty}</div>
                   <div className="muted" style={{ fontSize: 13 }}>{w.theme} · {w.difficulty} · {w.missions.length} missions · {w.clues.length} clues · {w.puzzles.length} puzzles</div>
                   <div className="dossier-meta">
                     <Icon name="play" size={11} /> {plays[w.id] ?? 0} plays · <Icon name="book" size={11} /> {chapters} chapters
