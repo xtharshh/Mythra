@@ -267,7 +267,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       tickers.length = 0;
       const liftAt = (x: number, z: number): number => groundHeightAt(x, z, W.theme);
       for (const o of W.objects) {
-        const mesh = createObjectMesh(o);
+        const mesh = createObjectMesh(o, W.branding?.station ?? W.name);
         // sit the model ON the terrain instead of inside it
         mesh.position.y += Math.max(0, liftAt(mesh.position.x, mesh.position.z));
         group.add(mesh);

@@ -81,32 +81,43 @@ const lampA = new THREE.MeshBasicMaterial({ color: 0xffb020 });
 const lampG = new THREE.MeshBasicMaterial({ color: 0x22ff88 });
 const paneGlass = new THREE.MeshStandardMaterial({ color: 0x9fd8e8, transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.4 });
 
-let screenTex: THREE.CanvasTexture | null = null;
-function getScreenTexture(): THREE.CanvasTexture {
-  if (screenTex) return screenTex;
+const screenTexCache = new Map<string, THREE.CanvasTexture>();
+function getScreenTexture(station: string): THREE.CanvasTexture {
+  const key = (station || "FIELD BASE").toUpperCase().slice(0, 24);
+  const hit = screenTexCache.get(key);
+  if (hit) return hit;
   const c = document.createElement("canvas");
   c.width = 256; c.height = 160;
   const g = c.getContext("2d")!;
   g.fillStyle = "#03140c"; g.fillRect(0, 0, 256, 160);
   g.fillStyle = "#34ff9e"; g.font = "bold 19px monospace";
-  g.fillText("AURORA BASE", 12, 26);
+  g.fillText(key, 12, 26);
   g.font = "12px monospace";
-  const rows = ["O2 ......... 62%", "PWR ... RST 4213", "SOL 441  drill OK", "SOL 442  [......]", "RIDGE ... -24,-8", "> listen_"];
-  rows.forEach((r, i) => g.fillText(r, 12, 50 + i * 16));
+  const rows = ["O2 ......... 62%", "PWR ... RST 4213", `${key.slice(0, 12)} ... OK`, "UPLINK .... LIVE", "SECTOR .. -24,-8", "> listen_"];
+  rows.forEach((r, i) => g.fillText(r, 12, 50 + i * 14));
   g.fillStyle = "rgba(0,0,0,0.35)";
   for (let y = 0; y < 160; y += 3) g.fillRect(0, y, 256, 1);
-  screenTex = new THREE.CanvasTexture(c);
-  screenTex.colorSpace = THREE.SRGBColorSpace;
-  return screenTex;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  screenTexCache.set(key, tex);
+  // tiny LRU: terminals never need more than a few station faces
+  if (screenTexCache.size > 8) {
+    const oldest = screenTexCache.keys().next().value;
+    if (oldest !== undefined && oldest !== key) {
+      screenTexCache.get(oldest)?.dispose();
+      screenTexCache.delete(oldest);
+    }
+  }
+  return tex;
 }
 
 /* ---------------- builders ---------------- */
-function buildConsole(g: THREE.Group, add: (t: TickFn) => void): void {
+function buildConsole(g: THREE.Group, add: (t: TickFn) => void, station: string): void {
   g.add(BOX(0.9, 0.5, 0.6, dark, 0, 0.25, 0));
   g.add(BOX(0.95, 0.55, 0.55, hull, 0, 0.75, 0));
   g.add(BOX(0.7, 0.06, 0.28, dark, 0, 0.98, 0.32));
   for (let i = 0; i < 3; i++) g.add(BOX(0.62, 0.02, 0.05, frame, 0, 1.0, 0.24 + i * 0.08));
-  const scr = new THREE.MeshBasicMaterial({ map: getScreenTexture() });
+  const scr = new THREE.MeshBasicMaterial({ map: getScreenTexture(station) });
   const frameM = BOX(0.86, 0.56, 0.05, dark, 0, 1.32, -0.12);
   frameM.rotation.x = -0.32;
   const screen = BOX(0.78, 0.48, 0.055, scr, 0, 1.32, -0.115);
@@ -1151,14 +1162,36 @@ function buildStationSign(g: THREE.Group): void {
   g.add(BOX(2.0, 0.5, 0.02, lampC, 0, 3.1, -0.08));
 }
 
+function buildShop(g: THREE.Group, add: (t: TickFn) => void): void {
+  // market stall: posts, striped awning, counter, goods crates, hanging lamp
+  for (const [x, z] of [[-1.1, -0.7], [1.1, -0.7], [-1.1, 0.7], [1.1, 0.7]]) {
+    g.add(BOX(0.1, 2.2, 0.1, wood, x, 1.1, z));
+  }
+  for (let i = 0; i < 6; i++) {
+    g.add(BOX(0.42, 0.06, 1.9, i % 2 === 0 ? fabricR : white, -1.05 + i * 0.42, 2.32, 0));
+  }
+  g.add(BOX(2.4, 0.5, 0.9, wood, 0, 0.75, 0.2));
+  g.add(BOX(2.2, 0.08, 0.7, dark, 0, 1.02, 0.2));
+  g.add(BOX(0.5, 0.35, 0.5, wood, -0.7, 1.22, 0.2));
+  g.add(BOX(0.4, 0.3, 0.4, fabricB, 0.1, 1.2, 0.2));
+  g.add(BOX(0.45, 0.28, 0.45, flowerM, 0.75, 1.18, 0.2));
+  const lamp = SPH(0.07, new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), 0, 2.05, 0, 8, 6);
+  g.add(lamp);
+  g.add(strut(new THREE.Vector3(0, 2.3, 0), new THREE.Vector3(0, 2.05, 0), 0.02, dark));
+  const phase = Math.random() * 6;
+  add((t) => {
+    (lamp.material as THREE.MeshBasicMaterial).color.setHex(Math.sin(t * 8 + phase) > -0.9 ? 0xffe9a8 : 0x9a7f45);
+  });
+}
+
 /* ---------------- entry ---------------- */
-export function createObjectMesh(obj: WorldObject): THREE.Group {
+export function createObjectMesh(obj: WorldObject, station = "AURORA BASE"): THREE.Group {
   const g = new THREE.Group();
   const ticks: TickFn[] = [];
   const add = (t: TickFn): void => { ticks.push(t); };
   const model = obj.modelId ?? obj.type;
   switch (model) {
-    case "console": buildConsole(g, add); break;
+    case "console": buildConsole(g, add, station); break;
     case "solar": buildSolar(g, obj.scale[0] || 3, obj.scale[2] || 2); break;
     case "rover": case "vehicle": buildRover(g, add); break;
     case "hatch": case "door": buildHatch(g, add); break;
@@ -1184,7 +1217,7 @@ export function createObjectMesh(obj: WorldObject): THREE.Group {
     case "container": buildCrate(g); break;
     case "landmark": buildObelisk(g); break;
     case "artifact": case "map": case "note": buildOrb(g, add); break;
-    case "terminal": case "machine": buildConsole(g, add); break;
+    case "terminal": case "machine": buildConsole(g, add, station); break;
     case "road": buildRoad(g); break;
     case "streetlamp": buildStreetlamp(g, add); break;
     case "trafficlight": buildTrafficLight(g, add); break;
@@ -1233,6 +1266,7 @@ export function createObjectMesh(obj: WorldObject): THREE.Group {
     case "ticketgate": buildTicketGate(g); break;
     case "tunnel": buildTunnel(g, add); break;
     case "stationsign": buildStationSign(g); break;
+    case "shop": buildShop(g, add); break;
     default: buildCrate(g); break;
   }
   // per-object material copies so highlight/pulse never leaks across objects

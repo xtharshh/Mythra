@@ -282,6 +282,7 @@ export function buildWorldPrompt(input: WorldGenerationInput): { system: string;
     "homes & interiors: house (door + lit windows + chimney), bed, table, chair, sofa, floorlamp, bookshelf, tv, fridge, desk, watercooler, printer, boat.",
     "nature & cities: building (multi-story tower, lit windows, roof beacon), bush, flower, cactus, palmtree, pond, fountain, statue, billboard, windmill, watertower, barrel, ladder, telescope, radio, phonebooth.",
     "metro & stations: train (metro carriage), rails (twin track + sleepers), platform (slab + canopy + bench), ticketgate (posts + barrier arm), tunnel (portal mouth), stationsign (glowing board).",
+    "market & people: shop (market stall with striped awning + goods — butcher, grocer, vendor of any trade), plus name people plainly (shopkeeper, vendor, guard, traveler) and they arrive as talking characters.",
     "RULE: every street scene gets road + streetlamp + at least one ride (car/bus/truck); every city scene gets building + billboard; homes get house + furniture. Repeat models across locations for avenues and fleets.",
     "ROAD LAYOUT — roads must form ONE continuous avenue, never scattered slabs: place every road modelId on the SAME x coordinate (x=0), with z centers spaced exactly 6 apart (e.g. -12, -6, 0, 6, 12), rotation [0,0,0], scale [1,1,1]. Line streetlamps and trafficlights at x=-3.2 and x=3.2 using the same z centers. Face buildings at x=±8. COMPLETENESS: a street tale MUST include ≥3 road + ≥3 streetlamp + ≥1 trafficlight + ≥2 rides + ≥1 building — a road prompt with missing pieces is rejected.",
     "METRO LAYOUT — a metro station is ONE connected line, never scattered props: rails on x=0 with z centers spaced exactly 6 apart (the track), platforms at x=±4.5 facing the rails, ticketgates in a row at the concourse end (z = lowest platform z - 8), stationsigns on every platform, tunnels capping the track ends (z = ±(last rail z + 8)). Trains sit ON rails (same x/z, y=0.35). COMPLETENESS: a metro tale MUST include ≥2 rails + ≥1 platform + ≥2 ticketgate + ≥1 train + ≥1 tunnel + ≥1 stationsign. Gate missions with item_owned (ticket) and puzzle_solved (timetable) conditions so Concourse → Gates → Platform → Train → Tunnel unlocks in order.",
@@ -799,6 +800,8 @@ const MODEL_IDS = [
   "telescope", "radio", "phonebooth",
   // metro pack
   "train", "rails", "platform", "ticketgate", "tunnel", "stationsign",
+  // market
+  "shop",
 ];
 const INTERACTION_KINDS = ["inspect", "collect", "solve", "talk", "activate", "repair", "build"];
 const CLUE_TYPES = ["note", "symbol", "audio", "visual", "object", "dialogue", "map", "environmental", "code", "pattern", "coordinate"];
@@ -954,6 +957,7 @@ export function buildChapterPrompt(input: ChapterDraftInput): { system: string; 
     "You are Mythio's story continuer. Write ONE continuation for a living game tale.",
     "Output ONLY a single JSON object — no prose, no fences. (Reply in json.)",
     'Shape: {title (≤80 chars, evocative, never "Untitled"), text (10–5000 chars, second person, concrete sights and sounds, no stage directions)}.',
+    "Name concrete objects and people plainly (train, platform, ticket gate, shop, shopkeeper, guard) — everything the chapter names by its plain name appears as a real 3D object or a talking character in the game world.",
   ].join("\n");
   const recent = input.recentChapters
     .slice(-3)
