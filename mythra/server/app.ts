@@ -8,7 +8,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { store } from "./db.js";
-import { buildAdminStats, isAdminEmail } from "./admin.js";
+import { attributedRoute, buildAdminStats, isAdminEmail, rollApiHits, rollCreators, splitUsers } from "./admin.js";
+import type { AdminStats, ApiHit } from "./admin.js";
 import { avatarUrl, discordAuthUrl, discordConfigured, discordEnv, displayName, exchangeCode, fetchProfile, newState } from "./discord.js";
 import { worldSchema } from "../src/schemas.js";
 import { validateWorld } from "../src/game/engines.js";
@@ -381,11 +382,88 @@ app.post("/api/admin/login", async (req, reply) => {
   return { token, email: clean };
 });
 
+// --- admin analytics: in-memory API hit log (capped, per process) ---
+const HITS_MAX = 1000;
+const bootAt = Date.now();
+const apiHits: ApiHit[] = [];
+
+function maskIp(ip: string): string {
+  if (!ip) return "unknown";
+  if (ip.includes(".")) {
+    const parts = ip.split(".");
+    if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.*`;
+  }
+  if (ip.includes(":")) return `${ip.split(":").slice(0, 3).join(":")}:*`;
+  return "unknown";
+}
+
+/** Country from platform headers (Vercel/Cloudflare); "unknown" otherwise —
+ *  the server does no GeoIP lookup of its own. */
+function countryOf(headers: Record<string, string | string[] | undefined>): string {
+  for (const name of ["x-vercel-ip-country", "cf-ipcountry"]) {
+    const raw = headers[name];
+    const v = (typeof raw === "string" ? raw : "").trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(v) && v !== "XX" && v !== "T1") return v;
+  }
+  return "unknown";
+}
+
+/** Collapse fallback URLs to route patterns when Fastify has no route (404s). */
+function normalizeRoute(url: string): string {
+  const path = url.split("?")[0];
+  return path.replace(/^(\/api\/(worlds|checkpoints|rooms))\/[^/]+$/, "$1/:id");
+}
+
+app.addHook("onRequest", async (req) => {
+  (req as unknown as { hitStart?: number }).hitStart = Date.now();
+});
+
+app.addHook("onResponse", async (req, reply) => {
+  try {
+    const route =
+      (req as unknown as { routeOptions?: { url?: string } }).routeOptions?.url ?? normalizeRoute(req.url);
+    // attribute the actor only on creation/extension writes — one extra token
+    // lookup per hit there, none on hot paths like presence heartbeats.
+    let user = "";
+    if (attributedRoute(req.method, route)) {
+      user = (await emailOf(req).catch(() => null)) ?? "";
+    }
+    const start = (req as unknown as { hitStart?: number }).hitStart ?? Date.now();
+    apiHits.push({
+      ts: Date.now(),
+      method: req.method,
+      route,
+      status: reply.statusCode,
+      ms: Date.now() - start,
+      ip: maskIp(req.ip),
+      country: countryOf(req.headers),
+      user,
+    });
+    if (apiHits.length > HITS_MAX) apiHits.splice(0, apiHits.length - HITS_MAX);
+  } catch {
+    /* analytics never breaks responses */
+  }
+});
+
 app.get("/api/admin/stats", async (req, reply) => {
   const email = await emailOf(req);
   if (!email || !isAdminEmail(email)) return reply.code(403).send({ error: "Admin only." });
-  const [worlds, boards] = await Promise.all([store.listWorlds(), store.allBoards()]);
-  return buildAdminStats(worlds, boards);
+  const [worlds, boards, tokenEmails, discordUsers, online] = await Promise.all([
+    store.listWorlds(),
+    store.allBoards(),
+    store.allTokenEmails(),
+    store.allDiscordUsers(),
+    store.onlineUsers(15 * 1000),
+  ]);
+  const stats: AdminStats = {
+    ...buildAdminStats(worlds, boards),
+    users: splitUsers(tokenEmails, discordUsers, online),
+    creators: rollCreators(worlds, apiHits),
+    api: { ...rollApiHits(apiHits), sinceBoot: new Date(bootAt).toISOString() },
+  };
+  stats.totals.users = stats.users.total;
+  stats.totals.onlineNow = stats.users.onlineCount;
+  return stats;
 });
 
 export default app;

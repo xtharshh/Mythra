@@ -1,5 +1,5 @@
 // Pure recursive condition evaluator — §11. No arbitrary JS allowed.
-import type { Condition, GameState } from "../types";
+import type { Condition, GameState } from "../types.js";
 
 export function evaluateCondition(condition: Condition, state: GameState): boolean {
   switch (condition.type) {

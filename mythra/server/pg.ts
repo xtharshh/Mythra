@@ -3,7 +3,7 @@
 // JSON blobs stay TEXT for 1:1 parity. Used when DATABASE_URL is set.
 import { neon } from "@neondatabase/serverless";
 import { rank } from "./store.js";
-import type { PresenceRow, RaceRow, Store } from "./store.js";
+import type { DiscordRow, OnlineRow, PresenceRow, RaceRow, Store } from "./store.js";
 
 type SqlRow = Record<string, unknown>;
 export type SqlTag = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<SqlRow[]>;
@@ -241,6 +241,32 @@ export function createPgStore(sqlTag?: SqlTag): Store {
         out.push({ user: str(r.email).split("@")[0], pos, suit: str(r.suit), room: str(r.room) });
       }
       return out;
+    },
+    async allTokenEmails(): Promise<string[]> {
+      const rows = await sql`SELECT DISTINCT email FROM tokens`;
+      return rows.map((r) => str(r.email)).filter((e) => e.length > 0);
+    },
+    async allDiscordUsers(): Promise<DiscordRow[]> {
+      const rows = await sql`SELECT id, username, global_name AS "globalName" FROM discord_users`;
+      const out: DiscordRow[] = [];
+      for (const r of rows) {
+        const id = str(r.id);
+        if (id) out.push({ id, username: str(r.username), globalName: str(r.globalName) });
+      }
+      return out;
+    },
+    async onlineUsers(windowMs): Promise<OnlineRow[]> {
+      const cutoff = Date.now() - windowMs;
+      await sql`DELETE FROM presence WHERE ts < ${cutoff}`;
+      const rows = await sql`SELECT world_id AS "worldId", email, suit, room, ts FROM presence WHERE ts >= ${cutoff}`;
+      return rows.map((r) => ({
+        user: str(r.email).split("@")[0],
+        email: str(r.email),
+        worldId: str(r.worldId),
+        suit: str(r.suit),
+        room: str(r.room),
+        ts: num(r.ts),
+      }));
     },
 
     async putLibrary(owner, data): Promise<string> {

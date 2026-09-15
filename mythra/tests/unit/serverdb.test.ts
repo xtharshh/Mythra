@@ -71,6 +71,20 @@ describe("sqlite store", () => {
     expect((await store.getCheckpoints("_sync@x.co", "w1"))?.data).toEqual([{ id: "c1" }]);
   });
 
+  it("censuses users and presence for the admin panel", async () => {
+    await store.addToken("tok-u1", "u1@x.co");
+    await store.addToken("tok-u2", "u2@x.co");
+    await store.addToken("tok-u1b", "u1@x.co"); // same email twice → counted once
+    expect((await store.allTokenEmails()).sort()).toEqual(["u1@x.co", "u2@x.co"]);
+    await store.upsertDiscordUser("d9", "ivan", "Ivan R", null);
+    expect(await store.allDiscordUsers()).toContainEqual({ id: "d9", username: "ivan", globalName: "Ivan R" });
+    await store.heartbeat("w9", "u1@x.co", [1, 1, 1], "s", "");
+    const online = await store.onlineUsers(60000);
+    expect(online.map((o) => o.email)).toContain("u1@x.co");
+    expect(online.find((o) => o.email === "u1@x.co")).toMatchObject({ worldId: "w9", user: "u1" });
+    expect(await store.onlineUsers(-1)).toEqual([]); // expired window → nobody
+  });
+
   it("auth codes round-trip and burn", async () => {
     await store.setCode("c@x.co", "123456", Date.now() + 60000);
     expect((await store.getCode("c@x.co"))?.code).toBe("123456");
