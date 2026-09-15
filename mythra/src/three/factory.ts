@@ -81,32 +81,43 @@ const lampA = new THREE.MeshBasicMaterial({ color: 0xffb020 });
 const lampG = new THREE.MeshBasicMaterial({ color: 0x22ff88 });
 const paneGlass = new THREE.MeshStandardMaterial({ color: 0x9fd8e8, transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.4 });
 
-let screenTex: THREE.CanvasTexture | null = null;
-function getScreenTexture(): THREE.CanvasTexture {
-  if (screenTex) return screenTex;
+const screenTexCache = new Map<string, THREE.CanvasTexture>();
+function getScreenTexture(station: string): THREE.CanvasTexture {
+  const key = (station || "FIELD BASE").toUpperCase().slice(0, 24);
+  const hit = screenTexCache.get(key);
+  if (hit) return hit;
   const c = document.createElement("canvas");
   c.width = 256; c.height = 160;
   const g = c.getContext("2d")!;
   g.fillStyle = "#03140c"; g.fillRect(0, 0, 256, 160);
   g.fillStyle = "#34ff9e"; g.font = "bold 19px monospace";
-  g.fillText("AURORA BASE", 12, 26);
+  g.fillText(key, 12, 26);
   g.font = "12px monospace";
-  const rows = ["O2 ......... 62%", "PWR ... RST 4213", "SOL 441  drill OK", "SOL 442  [......]", "RIDGE ... -24,-8", "> listen_"];
-  rows.forEach((r, i) => g.fillText(r, 12, 50 + i * 16));
+  const rows = ["O2 ......... 62%", "PWR ... RST 4213", `${key.slice(0, 12)} ... OK`, "UPLINK .... LIVE", "SECTOR .. -24,-8", "> listen_"];
+  rows.forEach((r, i) => g.fillText(r, 12, 50 + i * 14));
   g.fillStyle = "rgba(0,0,0,0.35)";
   for (let y = 0; y < 160; y += 3) g.fillRect(0, y, 256, 1);
-  screenTex = new THREE.CanvasTexture(c);
-  screenTex.colorSpace = THREE.SRGBColorSpace;
-  return screenTex;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  screenTexCache.set(key, tex);
+  // tiny LRU: terminals never need more than a few station faces
+  if (screenTexCache.size > 8) {
+    const oldest = screenTexCache.keys().next().value;
+    if (oldest !== undefined && oldest !== key) {
+      screenTexCache.get(oldest)?.dispose();
+      screenTexCache.delete(oldest);
+    }
+  }
+  return tex;
 }
 
 /* ---------------- builders ---------------- */
-function buildConsole(g: THREE.Group, add: (t: TickFn) => void): void {
+function buildConsole(g: THREE.Group, add: (t: TickFn) => void, station: string): void {
   g.add(BOX(0.9, 0.5, 0.6, dark, 0, 0.25, 0));
   g.add(BOX(0.95, 0.55, 0.55, hull, 0, 0.75, 0));
   g.add(BOX(0.7, 0.06, 0.28, dark, 0, 0.98, 0.32));
   for (let i = 0; i < 3; i++) g.add(BOX(0.62, 0.02, 0.05, frame, 0, 1.0, 0.24 + i * 0.08));
-  const scr = new THREE.MeshBasicMaterial({ map: getScreenTexture() });
+  const scr = new THREE.MeshBasicMaterial({ map: getScreenTexture(station) });
   const frameM = BOX(0.86, 0.56, 0.05, dark, 0, 1.32, -0.12);
   frameM.rotation.x = -0.32;
   const screen = BOX(0.78, 0.48, 0.055, scr, 0, 1.32, -0.115);
@@ -1151,14 +1162,86 @@ function buildStationSign(g: THREE.Group): void {
   g.add(BOX(2.0, 0.5, 0.02, lampC, 0, 3.1, -0.08));
 }
 
+function buildShop(g: THREE.Group, add: (t: TickFn) => void): void {
+  // market stall: posts, striped awning, counter, goods crates, hanging lamp
+  for (const [x, z] of [[-1.1, -0.7], [1.1, -0.7], [-1.1, 0.7], [1.1, 0.7]]) {
+    g.add(BOX(0.1, 2.2, 0.1, wood, x, 1.1, z));
+  }
+  for (let i = 0; i < 6; i++) {
+    g.add(BOX(0.42, 0.06, 1.9, i % 2 === 0 ? fabricR : white, -1.05 + i * 0.42, 2.32, 0));
+  }
+  g.add(BOX(2.4, 0.5, 0.9, wood, 0, 0.75, 0.2));
+  g.add(BOX(2.2, 0.08, 0.7, dark, 0, 1.02, 0.2));
+  g.add(BOX(0.5, 0.35, 0.5, wood, -0.7, 1.22, 0.2));
+  g.add(BOX(0.4, 0.3, 0.4, fabricB, 0.1, 1.2, 0.2));
+  g.add(BOX(0.45, 0.28, 0.45, flowerM, 0.75, 1.18, 0.2));
+  const lamp = SPH(0.07, new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), 0, 2.05, 0, 8, 6);
+  g.add(lamp);
+  g.add(strut(new THREE.Vector3(0, 2.3, 0), new THREE.Vector3(0, 2.05, 0), 0.02, dark));
+  const phase = Math.random() * 6;
+  add((t) => {
+    (lamp.material as THREE.MeshBasicMaterial).color.setHex(Math.sin(t * 8 + phase) > -0.9 ? 0xffe9a8 : 0x9a7f45);
+  });
+}
+
+/* ---------------- heroes & powers pack (original heroes, your stories) --- */
+
+function buildHero(g: THREE.Group, add: (t: TickFn) => void): void {
+  // caped champion: cowl, glowing eyes, emblem, billowing cape
+  const suitM = new THREE.MeshStandardMaterial({ color: 0x27408b, roughness: 0.5 });
+  const capeM = new THREE.MeshStandardMaterial({ color: 0x8b1a1a, roughness: 0.85, side: THREE.DoubleSide });
+  for (const s of [-0.13, 0.13]) {
+    g.add(BOX(0.16, 0.7, 0.16, dark, s, 0.35, 0));
+    g.add(BOX(0.2, 0.1, 0.3, dark, s, 0.05, 0.05));
+  }
+  g.add(BOX(0.5, 0.75, 0.3, suitM, 0, 1.05, 0));
+  const emblem = part(new THREE.OctahedronGeometry(0.09), lampA, 0, 1.2, 0.16);
+  emblem.scale.set(1, 1.4, 0.5);
+  g.add(emblem);
+  for (const s of [-0.34, 0.34]) {
+    g.add(BOX(0.12, 0.6, 0.12, suitM, s, 1.05, 0));
+    g.add(SPH(0.07, suitM, s, 0.7, 0, 8, 6));
+  }
+  g.add(SPH(0.19, suitM, 0, 1.72, 0, 14, 10));
+  for (const s of [-0.07, 0.07]) g.add(BOX(0.09, 0.05, 0.02, lampW, s, 1.74, 0.18));
+  const cape = BOX(0.52, 1.0, 0.04, capeM, 0, 1.0, -0.2);
+  cape.rotation.x = 0.12;
+  g.add(cape);
+  const phase = Math.random() * 6;
+  add((t) => {
+    cape.rotation.x = 0.12 + Math.sin(t * 1.6 + phase) * 0.06;
+  });
+}
+
+function buildPowerup(g: THREE.Group, add: (t: TickFn) => void): void {
+  // floating ability orb: golden core, twin orbit rings, light pedestal
+  g.add(CYL(0.5, 0.65, 0.18, dark, 0, 0.09, 0, 16));
+  const core = SPH(0.28, new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xffb020, emissiveIntensity: 1.8 }), 0, 1.1, 0, 18, 14);
+  g.add(core);
+  const ringM = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.8 });
+  const r1 = part(new THREE.TorusGeometry(0.5, 0.03, 8, 28), ringM, 0, 1.1, 0);
+  const r2 = part(new THREE.TorusGeometry(0.68, 0.025, 8, 28), ringM, 0, 1.1, 0);
+  r2.rotation.x = Math.PI / 2.4;
+  g.add(r1, r2);
+  const beam = CYL(0.06, 0.12, 1.0, new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.35 }), 0, 0.6, 0, 8);
+  g.add(beam);
+  const phase = Math.random() * 6;
+  add((t) => {
+    core.position.y = 1.1 + Math.sin(t * 1.8 + phase) * 0.15;
+    r1.rotation.y += 0.03;
+    r2.rotation.z += 0.02;
+    (core.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.6 + 0.5 * Math.sin(t * 3 + phase);
+  });
+}
+
 /* ---------------- entry ---------------- */
-export function createObjectMesh(obj: WorldObject): THREE.Group {
+export function createObjectMesh(obj: WorldObject, station = "AURORA BASE"): THREE.Group {
   const g = new THREE.Group();
   const ticks: TickFn[] = [];
   const add = (t: TickFn): void => { ticks.push(t); };
   const model = obj.modelId ?? obj.type;
   switch (model) {
-    case "console": buildConsole(g, add); break;
+    case "console": buildConsole(g, add, station); break;
     case "solar": buildSolar(g, obj.scale[0] || 3, obj.scale[2] || 2); break;
     case "rover": case "vehicle": buildRover(g, add); break;
     case "hatch": case "door": buildHatch(g, add); break;
@@ -1184,7 +1267,7 @@ export function createObjectMesh(obj: WorldObject): THREE.Group {
     case "container": buildCrate(g); break;
     case "landmark": buildObelisk(g); break;
     case "artifact": case "map": case "note": buildOrb(g, add); break;
-    case "terminal": case "machine": buildConsole(g, add); break;
+    case "terminal": case "machine": buildConsole(g, add, station); break;
     case "road": buildRoad(g); break;
     case "streetlamp": buildStreetlamp(g, add); break;
     case "trafficlight": buildTrafficLight(g, add); break;
@@ -1233,6 +1316,9 @@ export function createObjectMesh(obj: WorldObject): THREE.Group {
     case "ticketgate": buildTicketGate(g); break;
     case "tunnel": buildTunnel(g, add); break;
     case "stationsign": buildStationSign(g); break;
+    case "shop": buildShop(g, add); break;
+    case "hero": buildHero(g, add); break;
+    case "powerup": buildPowerup(g, add); break;
     default: buildCrate(g); break;
   }
   // per-object material copies so highlight/pulse never leaks across objects

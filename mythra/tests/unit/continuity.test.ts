@@ -3,6 +3,8 @@ import {
   applyContribution,
   chapterNumber,
   deriveTitleFromText,
+  detectRequestedModels,
+  detectRequestedPeople,
   forkWorld,
   makeContribution,
   nearestLocation,
@@ -128,6 +130,67 @@ describe("contribution titles (yours + named from your text)", () => {
     expect(deriveTitleFromText("")).toBe("");
     expect(deriveTitleFromText("hi")).toBe("");
     expect(resolveContributionTitle("", "")).toBe("Untitled discovery");
+  });
+});
+
+describe("chapter props materialize (named models become 3D)", () => {
+  const chapterText = "You stand on the cracked platform. The old iron rails lie rusted. A single flickering bulb sways above. A paper map of the station flutters past. Old posters of trains line the walls. The train you imagined starts to materialize on the new rails.";
+  it("detects the models a chapter names, in catalog order, capped", () => {
+    const ids = detectRequestedModels("A New Track in the Old Station", chapterText).map((m) => m.id);
+    expect(ids).toEqual(["train", "rails", "platform", "floorlamp", "billboard", "map"]);
+  });
+  it("never fires on lookalike words", () => {
+    expect(detectRequestedModels("t", "I carry a card across the scar.")).toEqual([]);
+  });
+  it("grows inspectable props at the chapter site on approve", () => {
+    const c = makeContribution(
+      { kind: "story_fragment", title: "A New Track in the Old Station", text: chapterText, targetLocationId: world.locations[0].id },
+      world.id, "Harsh Kumar", true,
+    );
+    const before = world.objects.length;
+    const next = applyContribution(structuredClone(world), c);
+    const props = next.objects.slice(before);
+    expect(props.length).toBeGreaterThanOrEqual(3);
+    expect(props.map((o) => o.modelId)).toContain("train");
+    for (const o of props) {
+      expect(o.locationId).toBe(world.locations[0].id);
+      expect(o.interaction?.kind).toBe("inspect");
+    }
+    // approving twice never duplicates props
+    expect(applyContribution(next, c).objects).toHaveLength(next.objects.length);
+  });
+  it("adds no props when the text names no models", () => {
+    const c = makeContribution(
+      { kind: "note", title: "Quiet wind", text: "The wind moved softly through the silent dunes tonight." },
+      world.id, "Harsh Kumar", true,
+    );
+    expect(applyContribution(structuredClone(world), c).objects).toHaveLength(world.objects.length);
+  });
+  it("raises a hero and his power when the chapter calls", () => {
+    const ids = detectRequestedModels("Rooftop oath", "A hero lands. Her mentor points at a glowing power orb.").map((m) => m.id);
+    expect(ids).toEqual(expect.arrayContaining(["hero", "powerup"]));
+  });
+  it("raises shops and a talking cast when the chapter asks", () => {
+    const text = "Raise a tall building here. Below it open 2 shops, one meat and one grocery. Keep 2 people at their shops so I can talk to them as well.";
+    expect(detectRequestedModels("Market row", text).map((m) => m.id)).toEqual(
+      expect.arrayContaining(["building", "shop"]),
+    );
+    expect(detectRequestedPeople("Market row", text).map((p) => p.name)).toEqual(["Local 1", "Local 2"]);
+    // "2 shops" must not inflate the cast
+    expect(detectRequestedPeople("Stalls", "Open 2 shops and a market.")).toEqual([]);
+    const c = makeContribution(
+      { kind: "story_fragment", title: "Market row", text, targetLocationId: world.locations[0].id },
+      world.id, "Harsh Kumar", true,
+    );
+    const next = applyContribution(structuredClone(world), c);
+    const shop = next.objects.find((o) => o.modelId === "shop");
+    expect(shop?.locationId).toBe(world.locations[0].id);
+    const npcs = next.objects.filter((o) => o.id.startsWith(`obj_${c.id}_npc`));
+    expect(npcs).toHaveLength(2);
+    expect(npcs[0].interaction?.kind).toBe("talk");
+    const cast = next.characters.slice(world.characters.length);
+    expect(cast.map((ch) => ch.name)).toEqual(["Local 1", "Local 2"]);
+    expect(cast[0].dialogue.length).toBeGreaterThan(0);
   });
 });
 

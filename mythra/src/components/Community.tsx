@@ -95,7 +95,7 @@ export function ContributeModal({ world, onClose }: { world: World; onClose: () 
     if (!check.ok) { setError(check.error); return; }
     const autoApprove = world.permissions.contributionMode === "open";
     submitContribution(makeContribution(draft, world.id, author, autoApprove));
-    setDone(autoApprove ? "✔ Published — read it right away in Journal → Chapters!" : "✉ Sent for review — approve it in Control → Awaiting review and it becomes a chapter.");
+    setDone(autoApprove ? "✔ Published — read it in Journal → Chapters, and look for its new objects standing in the world!" : "✉ Sent for review — approve it in Control → Awaiting review and it becomes a chapter.");
     setError("");
     setTitle(""); setText("");
     setTimeout(onClose, 1200);
