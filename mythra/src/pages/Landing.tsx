@@ -112,6 +112,25 @@ export default function Landing() {
             ))}
           </div>
         </div>
+
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="row" style={{ justifyContent: "space-between", gap: 16 }}>
+            <div style={{ flex: "1 1 260px" }}>
+              <div className="case-kicker">Fuel the mission</div>
+              <b style={{ fontSize: 17 }}>MYTHIO runs on coffee and curiosity.</b>
+              <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                Every coffee keeps the suits charged — new genres, new props, new worlds.
+                Made with obsession by <b>xtharshh</b>.
+              </p>
+            </div>
+            <div className="row" style={{ gap: 10 }}>
+              <SupportButton />
+              <a className="btn-ghost" href="https://instagram.com/xt.harshh" target="_blank" rel="noreferrer" title="xtharshh on Instagram">
+                @xt.harshh
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
       {tourOpen && <LandingTutorial onClose={() => setTourOpen(false)} />}
     </div>
