@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { rank } from "./store.js";
-import type { PresenceRow, RaceRow, Store } from "./store.js";
+import type { DiscordRow, OnlineRow, PresenceRow, RaceRow, Store } from "./store.js";
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), ".data");
 
@@ -274,6 +274,33 @@ CREATE TABLE IF NOT EXISTS oauth_state (
         out.push({ user: r.email.split("@")[0], pos, suit: r.suit, room: r.room });
       }
       return out;
+    },
+    async allTokenEmails(): Promise<string[]> {
+      const rows = db.prepare("SELECT DISTINCT email FROM tokens").all() as { email: string }[];
+      return rows.map((r) => r.email).filter((e) => typeof e === "string" && e.length > 0);
+    },
+    async allDiscordUsers(): Promise<DiscordRow[]> {
+      const rows = db.prepare("SELECT id, username, global_name FROM discord_users").all() as { id: string; username: string; global_name: string | null }[];
+      return rows
+        .map((r) => ({
+          id: String(r.id ?? ""),
+          username: String(r.username ?? ""),
+          globalName: typeof r.global_name === "string" ? r.global_name : "",
+        }))
+        .filter((r) => r.id.length > 0);
+    },
+    async onlineUsers(windowMs: number): Promise<OnlineRow[]> {
+      const cutoff = Date.now() - windowMs;
+      db.prepare("DELETE FROM presence WHERE ts < ?").run(cutoff);
+      const rows = db.prepare("SELECT world_id, email, suit, room, ts FROM presence WHERE ts >= ?").all(cutoff) as { world_id: string; email: string; suit: string; room: string; ts: number }[];
+      return rows.map((r) => ({
+        user: String(r.email ?? "").split("@")[0],
+        email: String(r.email ?? ""),
+        worldId: String(r.world_id ?? ""),
+        suit: String(r.suit ?? ""),
+        room: String(r.room ?? ""),
+        ts: typeof r.ts === "number" ? r.ts : 0,
+      }));
     },
 
     // per-owner library blob (tales, queue, versions) — last write wins

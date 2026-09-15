@@ -1,5 +1,5 @@
 // Mythio store contract — every backend (SQLite local, Postgres/Neon on
-// Vercel) implements these 28 methods. Routes only ever touch `Store`,
+// Vercel) implements these 31 methods. Routes only ever touch `Store`,
 // so swapping databases never touches game logic.
 export interface RaceRow {
   user: string;
@@ -16,6 +16,22 @@ export interface PresenceRow {
   pos: [number, number, number];
   suit: string;
   room: string;
+}
+
+/** One fresh presence heartbeat, across all worlds (admin "who is online"). */
+export interface OnlineRow {
+  user: string;
+  email: string;
+  worldId: string;
+  suit: string;
+  room: string;
+  ts: number;
+}
+
+export interface DiscordRow {
+  id: string;
+  username: string;
+  globalName: string;
 }
 
 export interface Store {
@@ -40,6 +56,12 @@ export interface Store {
   racersFor(roomId: string, worldId: string): Promise<RaceRow[]>;
   heartbeat(worldId: string, email: string, pos: [number, number, number], suit: string, room: string): Promise<void>;
   peersFor(worldId: string, roomId: string, windowMs: number): Promise<PresenceRow[]>;
+  /** Distinct login emails holding tokens (admin user census). */
+  allTokenEmails(): Promise<string[]>;
+  /** Every Discord profile seen via OAuth (admin user census). */
+  allDiscordUsers(): Promise<DiscordRow[]>;
+  /** Fresh heartbeats across all worlds (admin "who is online"). */
+  onlineUsers(windowMs: number): Promise<OnlineRow[]>;
   putLibrary(owner: string, data: unknown): Promise<string>;
   getLibrary(owner: string): Promise<{ data: unknown; updatedAt: string } | undefined>;
   putCheckpoints(owner: string, worldId: string, list: unknown): Promise<string>;

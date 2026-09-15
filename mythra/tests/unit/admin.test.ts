@@ -1,20 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { adminEmails, buildAdminStats, isAdminEmail } from "../../server/admin";
+import {
+  adminEmails,
+  attributedRoute,
+  buildAdminStats,
+  isAdminEmail,
+  rollApiHits,
+  rollCreators,
+  splitUsers,
+} from "../../server/admin";
 import { adminLogin, clearAdmin, fetchAdminStats, loadAdmin, saveAdmin } from "../../src/admin/admin";
 
-const ENV = { ADMIN_EMAILS: "Boss@Example.com, crew@example.com ", ADMIN_KEY: "s3cret" } as NodeJS.ProcessEnv;
+const ENV = { ADMIN_EMAILS: "Boss@Example.com, crew@example.com ", ADMIN_KEY: "s3cret" };
 
 describe("admin gate", () => {
   it("parses the allowlist (trim + lowercase, drops empties)", () => {
     expect(adminEmails(ENV)).toEqual(["boss@example.com", "crew@example.com"]);
-    expect(adminEmails({} as NodeJS.ProcessEnv)).toEqual([]);
+    expect(adminEmails({})).toEqual([]);
   });
 
   it("admits allowlisted emails only when a key is configured", () => {
     expect(isAdminEmail("boss@example.com", ENV)).toBe(true);
     expect(isAdminEmail("  CREW@example.com ", ENV)).toBe(true);
     expect(isAdminEmail("stranger@example.com", ENV)).toBe(false);
-    expect(isAdminEmail("boss@example.com", { ADMIN_EMAILS: "boss@example.com" } as NodeJS.ProcessEnv)).toBe(false);
+    expect(isAdminEmail("boss@example.com", { ADMIN_EMAILS: "boss@example.com" })).toBe(false);
     expect(isAdminEmail("", ENV)).toBe(false);
     expect(isAdminEmail(undefined, ENV)).toBe(false);
   });
@@ -65,6 +73,63 @@ describe("admin stats aggregation", () => {
   });
 });
 
+describe("admin users split", () => {
+  it("separates online from offline and matches discord by name", () => {
+    const s = splitUsers(
+      ["a@x.co", "b@x.co"],
+      [{ id: "d1", username: "ivan", globalName: "Ivan R" }],
+      [{ email: "a@x.co", worldId: "w1", suit: "s", ts: 1000 }, { email: "Ivan R", worldId: "w2", suit: "s", ts: 2000 }],
+      3000,
+    );
+    expect(s.total).toBe(3);
+    expect(s.onlineCount).toBe(2);
+    expect(s.online.map((u) => u.email).sort()).toEqual(["Ivan R", "a@x.co"]);
+    expect(s.offline).toEqual(["b@x.co"]);
+    expect(s.discord).toMatchObject([{ id: "d1", name: "ivan", kind: "discord", online: true, worldId: "w2" }]);
+  });
+
+  it("dedupes repeat heartbeats and survives junk", () => {
+    const s = splitUsers(["a@x.co"], [], [{ email: "a@x.co" }, { email: "a@x.co" }, null], 0);
+    expect(s.onlineCount).toBe(1);
+    expect(s.offline).toEqual([]);
+  });
+});
+
+describe("admin api rollup", () => {
+  const hits = [
+    { ts: 1, method: "POST", route: "/api/worlds", status: 200, ms: 40, ip: "1.2.3.*", country: "IN", user: "a@x.co" },
+    { ts: 2, method: "POST", route: "/api/worlds", status: 400, ms: 10, ip: "1.2.3.*", country: "IN", user: "b@x.co" },
+    { ts: 3, method: "GET", route: "/api/worlds", status: 200, ms: 5, ip: "9.9.9.*", country: "unknown", user: "" },
+    { ts: 4, method: "PUT", route: "/api/library", status: 200, ms: 12, ip: "1.2.3.*", country: "IN", user: "a@x.co" },
+  ];
+
+  it("attributes only creation/extension writes", () => {
+    expect(attributedRoute("POST", "/api/worlds")).toBe(true);
+    expect(attributedRoute("PUT", "/api/library")).toBe(true);
+    expect(attributedRoute("PUT", "/api/checkpoints/w1")).toBe(true);
+    expect(attributedRoute("POST", "/api/rooms")).toBe(true);
+    expect(attributedRoute("GET", "/api/worlds")).toBe(false);
+    expect(attributedRoute("POST", "/api/presence")).toBe(false);
+  });
+
+  it("rolls endpoints, countries, and recent hits", () => {
+    const r = rollApiHits(hits, 99);
+    expect(r.total).toBe(4);
+    expect(r.errors).toBe(1);
+    expect(r.byEndpoint[0]).toMatchObject({ route: "POST /api/worlds", hits: 2, errors: 1, avgMs: 25 });
+    expect(r.byCountry).toContainEqual({ country: "IN", hits: 3 });
+    expect(r.recent.map((h) => h.ts)).toEqual([4, 3, 2, 1]);
+  });
+
+  it("rolls per-user creations and extensions", () => {
+    const rows = rollCreators([{ owner: "a@x.co" }, { owner: "" }], hits);
+    expect(rows).toMatchObject([
+      { user: "a@x.co", worldsPublished: 1, createAttempts: 1, createRejected: 0, librarySyncs: 1 },
+      { user: "b@x.co", worldsPublished: 0, createAttempts: 1, createRejected: 1, librarySyncs: 0 },
+    ]);
+  });
+});
+
 describe("admin session", () => {
   it("round-trips safely headless (no storage → null, never throws)", () => {
     expect(loadAdmin()).toBeNull();
@@ -78,7 +143,14 @@ describe("admin session", () => {
   });
 
   it("fails soft with no backend", async () => {
-    await expect(adminLogin("a@b.co", "k")).rejects.toThrow(/unreachable/i);
-    await expect(fetchAdminStats("t")).rejects.toThrow(/unreachable/i);
+    // hermetic: never touch a real backend even if one runs locally
+    const realFetch = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = () => Promise.reject(new Error("down"));
+    try {
+      await expect(adminLogin("a@b.co", "k")).rejects.toThrow(/unreachable/i);
+      await expect(fetchAdminStats("t")).rejects.toThrow(/unreachable/i);
+    } finally {
+      (globalThis as { fetch?: unknown }).fetch = realFetch;
+    }
   });
 });

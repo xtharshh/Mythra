@@ -340,10 +340,10 @@ export function populateWorld(world: World, opts: PopulateOptions): void {
     // Skip if too close to any location
     if (locations.some(l => (l.position[0] - x) ** 2 + (l.position[2] - z) ** 2 < 100)) continue;
 
-    const globalProps = [
-      { modelId: "statue", type: "landmark" as const, name: "Standing Stone", desc: "Ancient marker.", scale: [1, 1, 1] },
-      { modelId: "bush", type: "landmark" as const, name: "Wild Bush", desc: "Hardy survivor.", scale: [1, 1, 1] },
-      { modelId: "crystal", type: "crystal" as const, name: "Crystal Shard", desc: "Catches the light.", scale: [0.6, 0.8, 0.6] },
+    const globalProps: { modelId: string; type: "landmark" | "crystal"; name: string; desc: string; scale: [number, number, number] }[] = [
+      { modelId: "statue", type: "landmark", name: "Standing Stone", desc: "Ancient marker.", scale: [1, 1, 1] },
+      { modelId: "bush", type: "landmark", name: "Wild Bush", desc: "Hardy survivor.", scale: [1, 1, 1] },
+      { modelId: "crystal", type: "crystal", name: "Crystal Shard", desc: "Catches the light.", scale: [0.6, 0.8, 0.6] },
     ];
     const prop = globalProps[Math.floor(rnd() * globalProps.length)];
     addObject(world, {

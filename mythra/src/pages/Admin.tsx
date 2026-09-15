@@ -121,11 +121,108 @@ export default function Admin() {
         <>
           <div className="row" style={{ alignItems: "stretch" }}>
             <StatCard label="Worlds" value={stats.totals.worlds} />
+            <StatCard label="Users" value={stats.totals.users} />
+            <StatCard label="Online now" value={stats.totals.onlineNow} />
             <StatCard label="Owners" value={stats.totals.owners} />
             <StatCard label="Plays" value={stats.totals.plays} />
             <StatCard label="Solvers" value={stats.totals.solvers} />
             <StatCard label="Missions solved" value={stats.totals.missionsSolved} />
             <StatCard label="Clues found" value={stats.totals.cluesFound} />
+            <StatCard label="API hits" value={stats.api.total} />
+          </div>
+          <div className="row" style={{ alignItems: "flex-start", marginTop: 4 }}>
+            <div className="card" style={{ flex: "1 1 260px" }}>
+              <b>Online now ({stats.users.onlineCount})</b>
+              {stats.users.online.length === 0 && <p className="muted">Nobody inside a story.</p>}
+              {stats.users.online.map((u) => (
+                <div className="row" key={u.email} style={{ justifyContent: "space-between" }}>
+                  <span><span style={{ color: "var(--th-accent)" }}>●</span> {u.email}</span>
+                  <span className="muted" style={{ fontSize: 13 }}>{u.worldId || "—"}</span>
+                </div>
+              ))}
+              <b style={{ display: "block", marginTop: 12 }}>Discord ({stats.users.discord.length})</b>
+              {stats.users.discord.length === 0 && <p className="muted">No Discord sign-ins yet.</p>}
+              {stats.users.discord.map((d) => (
+                <div className="row" key={d.id} style={{ justifyContent: "space-between" }}>
+                  <span>{d.online ? <span style={{ color: "var(--th-accent)" }}>●</span> : <span className="muted">○</span>} {d.name}</span>
+                  <span className="dossier-meta">{d.id}</span>
+                </div>
+              ))}
+            </div>
+            <div className="card" style={{ flex: "1 1 260px", maxHeight: 320, overflowY: "auto" }}>
+              <b>Offline ({stats.users.offlineCount})</b>
+              {stats.users.offline.length === 0 && <p className="muted">No registered emails idle.</p>}
+              {stats.users.offline.map((e) => (
+                <div key={e} style={{ fontSize: 13, padding: "2px 0" }}><span className="muted">○</span> {e}</div>
+              ))}
+            </div>
+          </div>
+          <div className="card" style={{ marginTop: 4, overflowX: "auto" }}>
+            <b>Creations &amp; extensions</b>
+            <p className="muted" style={{ fontSize: 12 }}>Published is durable · attempts/syncs since server boot.</p>
+            {stats.creators.length === 0 && <p className="muted">Nobody has published or written yet.</p>}
+            {stats.creators.length > 0 && (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 8 }}>
+                <thead>
+                  <tr className="muted" style={{ textAlign: "left" }}>
+                    <th style={{ padding: "6px 8px" }}>User</th>
+                    <th style={{ padding: "6px 8px" }}>Published</th>
+                    <th style={{ padding: "6px 8px" }}>Create tries</th>
+                    <th style={{ padding: "6px 8px" }}>Rejected</th>
+                    <th style={{ padding: "6px 8px" }}>Library syncs</th>
+                    <th style={{ padding: "6px 8px" }}>Checkpoint pushes</th>
+                    <th style={{ padding: "6px 8px" }}>Rooms</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.creators.map((c) => (
+                    <tr key={c.user} style={{ borderTop: "1px solid var(--th-line, #333)" }}>
+                      <td style={{ padding: "6px 8px" }}>{c.user}</td>
+                      <td style={{ padding: "6px 8px" }}>{c.worldsPublished}</td>
+                      <td style={{ padding: "6px 8px" }}>{c.createAttempts}</td>
+                      <td style={{ padding: "6px 8px" }}>{c.createRejected}</td>
+                      <td style={{ padding: "6px 8px" }}>{c.librarySyncs}</td>
+                      <td style={{ padding: "6px 8px" }}>{c.checkpointPushes}</td>
+                      <td style={{ padding: "6px 8px" }}>{c.roomsHosted}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <div className="row" style={{ alignItems: "flex-start", marginTop: 4 }}>
+            <div className="card" style={{ flex: "1 1 260px" }}>
+              <b>API hits by endpoint</b>
+              {stats.api.byEndpoint.length === 0 && <p className="muted">No traffic since boot.</p>}
+              {stats.api.byEndpoint.map((e) => (
+                <div className="row" key={e.route} style={{ justifyContent: "space-between" }}>
+                  <span className="dossier-meta">{e.route}</span>
+                  <span style={{ fontSize: 13 }}>{e.hits} hits{e.errors > 0 && ` · ${e.errors} err`} · {e.avgMs}ms</span>
+                </div>
+              ))}
+              <b style={{ display: "block", marginTop: 12 }}>By country</b>
+              {stats.api.byCountry.length === 0 && <p className="muted">—</p>}
+              <div className="row">
+                {stats.api.byCountry.map((c) => (
+                  <span key={c.country} className="dossier-meta">{c.country} · {c.hits}</span>
+                ))}
+              </div>
+              <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                Country from platform headers when present, else unknown — the server does no GeoIP lookup.
+              </p>
+            </div>
+            <div className="card" style={{ flex: "1 1 260px", maxHeight: 320, overflowY: "auto" }}>
+              <b>Recent hits</b>
+              {stats.api.recent.length === 0 && <p className="muted">—</p>}
+              {stats.api.recent.map((h, i) => (
+                <div key={`${h.ts}-${i}`} style={{ fontSize: 12, padding: "3px 0", borderTop: "1px solid var(--th-line, #333)" }}>
+                  <span className="dossier-meta">{new Date(h.ts).toLocaleTimeString()}</span>{" "}
+                  {h.method} {h.route}{" "}
+                  <span style={{ color: h.status >= 400 ? "var(--th-danger, #ff6b6b)" : "var(--th-accent)" }}>{h.status}</span>{" "}
+                  <span className="muted">{h.country} · {h.ms}ms{h.user ? ` · ${h.user}` : ""}{h.ip !== "unknown" ? ` · ${h.ip}` : ""}</span>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="row" style={{ alignItems: "flex-start", marginTop: 4 }}>
             <div className="card" style={{ flex: "1 1 260px" }}>

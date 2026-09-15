@@ -1,7 +1,7 @@
 // Game engines: validation (§13), mission/clue/puzzle/inventory logic (§8–10).
-import { worldSchema } from "../schemas";
-import type { GameState, ValidationReport, World } from "../types";
-import { collectConditionRefs, evaluateCondition } from "./conditions";
+import { worldSchema } from "../schemas.js";
+import type { GameState, ValidationReport, World } from "../types.js";
+import { collectConditionRefs, evaluateCondition } from "./conditions.js";
 
 export function validateWorld(world: World): ValidationReport {
   const errors: ValidationReport["errors"] = [];

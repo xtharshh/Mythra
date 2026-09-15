@@ -11,6 +11,8 @@ export interface CheckpointSnapshot {
   activeMissions: string[];
   solvedPuzzles: string[];
   inspectedObjects: string[];
+  /** Picked-up objects, depleted in-scene — absent on saves from older builds. */
+  collectedObjects?: string[];
   reachedLocations: string[];
   flags: Record<string, string | number | boolean>;
   notes: Record<string, string>;
