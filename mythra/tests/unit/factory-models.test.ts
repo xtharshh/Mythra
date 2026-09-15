@@ -80,4 +80,13 @@ describe("engine animates each model correctly — never generic, never frozen",
     expect(tick("rails"), "rails").toBeUndefined();
     expect(tick("platform"), "platform").toBeUndefined();
   });
+
+  it("builds the market stall and hero pack (both animate)", () => {
+    for (const m of ["shop", "hero", "powerup"]) {
+      const g = createObjectMesh(obj(m));
+      expect(g.children.length, m).toBeGreaterThanOrEqual(3);
+      expect(g.userData.objectId, m).toBe(`t_${m}`);
+      expect(tick(m), m).toBeDefined();
+    }
+  });
 });

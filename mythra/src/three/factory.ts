@@ -1184,6 +1184,56 @@ function buildShop(g: THREE.Group, add: (t: TickFn) => void): void {
   });
 }
 
+/* ---------------- heroes & powers pack (original heroes, your stories) --- */
+
+function buildHero(g: THREE.Group, add: (t: TickFn) => void): void {
+  // caped champion: cowl, glowing eyes, emblem, billowing cape
+  const suitM = new THREE.MeshStandardMaterial({ color: 0x27408b, roughness: 0.5 });
+  const capeM = new THREE.MeshStandardMaterial({ color: 0x8b1a1a, roughness: 0.85, side: THREE.DoubleSide });
+  for (const s of [-0.13, 0.13]) {
+    g.add(BOX(0.16, 0.7, 0.16, dark, s, 0.35, 0));
+    g.add(BOX(0.2, 0.1, 0.3, dark, s, 0.05, 0.05));
+  }
+  g.add(BOX(0.5, 0.75, 0.3, suitM, 0, 1.05, 0));
+  const emblem = part(new THREE.OctahedronGeometry(0.09), lampA, 0, 1.2, 0.16);
+  emblem.scale.set(1, 1.4, 0.5);
+  g.add(emblem);
+  for (const s of [-0.34, 0.34]) {
+    g.add(BOX(0.12, 0.6, 0.12, suitM, s, 1.05, 0));
+    g.add(SPH(0.07, suitM, s, 0.7, 0, 8, 6));
+  }
+  g.add(SPH(0.19, suitM, 0, 1.72, 0, 14, 10));
+  for (const s of [-0.07, 0.07]) g.add(BOX(0.09, 0.05, 0.02, lampW, s, 1.74, 0.18));
+  const cape = BOX(0.52, 1.0, 0.04, capeM, 0, 1.0, -0.2);
+  cape.rotation.x = 0.12;
+  g.add(cape);
+  const phase = Math.random() * 6;
+  add((t) => {
+    cape.rotation.x = 0.12 + Math.sin(t * 1.6 + phase) * 0.06;
+  });
+}
+
+function buildPowerup(g: THREE.Group, add: (t: TickFn) => void): void {
+  // floating ability orb: golden core, twin orbit rings, light pedestal
+  g.add(CYL(0.5, 0.65, 0.18, dark, 0, 0.09, 0, 16));
+  const core = SPH(0.28, new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xffb020, emissiveIntensity: 1.8 }), 0, 1.1, 0, 18, 14);
+  g.add(core);
+  const ringM = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.8 });
+  const r1 = part(new THREE.TorusGeometry(0.5, 0.03, 8, 28), ringM, 0, 1.1, 0);
+  const r2 = part(new THREE.TorusGeometry(0.68, 0.025, 8, 28), ringM, 0, 1.1, 0);
+  r2.rotation.x = Math.PI / 2.4;
+  g.add(r1, r2);
+  const beam = CYL(0.06, 0.12, 1.0, new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.35 }), 0, 0.6, 0, 8);
+  g.add(beam);
+  const phase = Math.random() * 6;
+  add((t) => {
+    core.position.y = 1.1 + Math.sin(t * 1.8 + phase) * 0.15;
+    r1.rotation.y += 0.03;
+    r2.rotation.z += 0.02;
+    (core.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.6 + 0.5 * Math.sin(t * 3 + phase);
+  });
+}
+
 /* ---------------- entry ---------------- */
 export function createObjectMesh(obj: WorldObject, station = "AURORA BASE"): THREE.Group {
   const g = new THREE.Group();
@@ -1267,6 +1317,8 @@ export function createObjectMesh(obj: WorldObject, station = "AURORA BASE"): THR
     case "tunnel": buildTunnel(g, add); break;
     case "stationsign": buildStationSign(g); break;
     case "shop": buildShop(g, add); break;
+    case "hero": buildHero(g, add); break;
+    case "powerup": buildPowerup(g, add); break;
     default: buildCrate(g); break;
   }
   // per-object material copies so highlight/pulse never leaks across objects

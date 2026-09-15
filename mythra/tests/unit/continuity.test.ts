@@ -166,6 +166,10 @@ describe("chapter props materialize (named models become 3D)", () => {
     );
     expect(applyContribution(structuredClone(world), c).objects).toHaveLength(world.objects.length);
   });
+  it("raises a hero and his power when the chapter calls", () => {
+    const ids = detectRequestedModels("Rooftop oath", "A hero lands. Her mentor points at a glowing power orb.").map((m) => m.id);
+    expect(ids).toEqual(expect.arrayContaining(["hero", "powerup"]));
+  });
   it("raises shops and a talking cast when the chapter asks", () => {
     const text = "Raise a tall building here. Below it open 2 shops, one meat and one grocery. Keep 2 people at their shops so I can talk to them as well.";
     expect(detectRequestedModels("Market row", text).map((m) => m.id)).toEqual(

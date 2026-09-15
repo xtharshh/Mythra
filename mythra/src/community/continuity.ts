@@ -185,6 +185,8 @@ const MODEL_WORDS: ModelWord[] = [
   { id: "beacon", label: "Beacon", type: "landmark", words: ["beacon"] },
   { id: "hatch", label: "Hatch", type: "door", words: ["hatch", "airlock"] },
   { id: "barrel", label: "Barrel", type: "container", words: ["barrel", "drum"] },
+  { id: "hero", label: "Hero", type: "npc", words: ["hero", "heroes", "superhero", "superheroes", "champion", "villain", "mentor", "guardian"] },
+  { id: "powerup", label: "Power orb", type: "artifact", words: ["power orb", "powerup", "ability orb"] },
 ];
 
 export const MAX_CHAPTER_PROPS = 6;

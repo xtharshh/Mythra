@@ -57,6 +57,8 @@ export const CHARACTERS: CharacterSpec[] = [
   { id: "warden", label: "Warden", suit: 0x4d7c0f, accent: 0xfbbf24, blurb: "Trail green" },
   { id: "neon", label: "Neon", suit: 0x23262f, accent: 0xec4899, blurb: "Night ops + pink trim" },
   { id: "ember", label: "Ember", suit: 0x7c2d12, accent: 0xffb45e, blurb: "Forge red" },
+  { id: "sentinel", label: "Sentinel", suit: 0xc9a227, accent: 0xdc2626, blurb: "Gold plate, hero red trim" },
+  { id: "nocturne", label: "Nocturne", suit: 0x1e1b4b, accent: 0xa78bfa, blurb: "Night violet for rooftop patrols" },
 ];
 
 const CHAR_KEY = "lumen-character-v1";
