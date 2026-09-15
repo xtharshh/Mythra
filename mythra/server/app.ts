@@ -419,6 +419,8 @@ app.addHook("onRequest", async (req) => {
 });
 
 app.addHook("onResponse", async (req, reply) => {
+  // CORS preflights are browser noise, not API usage — never log them.
+  if (req.method === "OPTIONS") return;
   try {
     const route =
       (req as unknown as { routeOptions?: { url?: string } }).routeOptions?.url ?? normalizeRoute(req.url);
