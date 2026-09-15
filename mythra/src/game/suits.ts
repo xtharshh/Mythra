@@ -80,19 +80,90 @@ export function saveCharacter(id: string): void {
   }
 }
 
-/** Encode a picked suit for the presence wire (`suitHex:accentHex`). Pure. */
-export function encodeSuit(suit: number, accent: number): string {
-  return `${suit.toString(16)}:${accent.toString(16)}`;
+/* ---------------- 3D avatar look (Facet Avatar Maker options) ----------- */
+
+export type AvatarHairStyle = "bowl" | "buzz" | "spiky" | "ponytail" | "messy";
+export type AvatarAccessory = "none" | "glasses" | "cap";
+export type AvatarExpression = "happy" | "neutral" | "surprised" | "sleepy";
+/** In-game body: classic suited astronaut, or the chibi avatar face. */
+export type AvatarBody = "astronaut" | "chibi";
+
+export interface AvatarConfig {
+  skinColor: string;
+  hairStyle: AvatarHairStyle;
+  accessory: AvatarAccessory;
+  expression: AvatarExpression;
+  body: AvatarBody;
+}
+
+export const AVATAR_SKIN_COLORS = ["#f2c89b", "#d9a06b", "#8d5a3b", "#5a3a26"];
+export const AVATAR_HAIR_STYLES: AvatarHairStyle[] = ["bowl", "buzz", "spiky", "ponytail", "messy"];
+export const AVATAR_ACCESSORIES: AvatarAccessory[] = ["none", "glasses", "cap"];
+export const AVATAR_EXPRESSIONS: AvatarExpression[] = ["happy", "neutral", "surprised", "sleepy"];
+
+export const DEFAULT_AVATAR: AvatarConfig = {
+  skinColor: AVATAR_SKIN_COLORS[0],
+  hairStyle: "messy",
+  accessory: "none",
+  expression: "happy",
+  body: "astronaut",
+};
+
+const AVATAR_KEY = "lumen-avatar-v1";
+
+function validAvatar(raw: unknown): AvatarConfig | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (!AVATAR_SKIN_COLORS.includes(String(r.skinColor))) return null;
+  if (!AVATAR_HAIR_STYLES.includes(r.hairStyle as AvatarHairStyle)) return null;
+  if (!AVATAR_ACCESSORIES.includes(r.accessory as AvatarAccessory)) return null;
+  if (!AVATAR_EXPRESSIONS.includes(r.expression as AvatarExpression)) return null;
+  if (r.body !== undefined && r.body !== "astronaut" && r.body !== "chibi") return null;
+  return {
+    skinColor: String(r.skinColor),
+    hairStyle: r.hairStyle as AvatarHairStyle,
+    accessory: r.accessory as AvatarAccessory,
+    expression: r.expression as AvatarExpression,
+    body: (r.body === "chibi" ? "chibi" : "astronaut") as AvatarBody,
+  };
+}
+
+/** Load the explorer's saved 3D avatar look (defaults headless). Pure. */
+export function loadAvatar(): AvatarConfig {
+  try {
+    const found = validAvatar(JSON.parse(localStorage.getItem(AVATAR_KEY) ?? "null"));
+    if (found) return found;
+  } catch {
+    /* ignore */
+  }
+  return { ...DEFAULT_AVATAR };
+}
+
+/** Persist the explorer's 3D avatar look (invalid configs ignored). */
+export function saveAvatar(cfg: AvatarConfig): void {
+  try {
+    if (validAvatar(cfg)) localStorage.setItem(AVATAR_KEY, JSON.stringify(cfg));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Encode a picked suit for the presence wire (`suitHex:accentHex:body`).
+ *  Old `suitHex:accentHex` codes still decode (body defaults astronaut). Pure. */
+export function encodeSuit(suit: number, accent: number, body: AvatarBody = "astronaut"): string {
+  return `${suit.toString(16)}:${accent.toString(16)}:${body === "chibi" ? "c" : "a"}`;
 }
 
 /** Decode a presence suit, falling back to the scenario suit. Pure. */
-export function decodeSuit(raw: unknown, fallbackUser: string, fallbackTheme: string): { suit: number; accent: number } {
+export function decodeSuit(raw: unknown, fallbackUser: string, fallbackTheme: string): { suit: number; accent: number; body: AvatarBody } {
   if (typeof raw === "string") {
-    const [s, a] = raw.split(":");
+    const [s, a, b] = raw.split(":");
     const suit = Number.parseInt(s ?? "", 16);
     const accent = Number.parseInt(a ?? "", 16);
-    if (Number.isFinite(suit) && Number.isFinite(accent)) return { suit, accent };
+    if (Number.isFinite(suit) && Number.isFinite(accent)) {
+      return { suit, accent, body: b === "c" ? "chibi" : "astronaut" };
+    }
   }
   const fb = suitForUser(fallbackUser, fallbackTheme);
-  return { suit: fb.suit, accent: fb.accent };
+  return { suit: fb.suit, accent: fb.accent, body: "astronaut" };
 }

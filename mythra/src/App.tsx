@@ -9,11 +9,13 @@ import Studio from "./pages/Studio";
 import { Privacy, Terms } from "./pages/Legal";
 import { AuthButton, EntryModal, LoginModal } from "./components/Login";
 import { Tutorial, tutorialSeen } from "./components/Tutorial";
+import { LandingTutorial, landingOnboardingSeen } from "./components/LandingTutorial";
 import { MobileGate, dismissMobileGate, isMobileDevice, mobileGateDismissed } from "./components/MobileGate";
 import { LANGS, t, useLang } from "./i18n/lang";
 import type { LangId } from "./i18n/lang";
 import { Logo } from "./components/Logo";
 import { SupportButton } from "./components/Support";
+import { Watermark } from "./components/Watermark";
 import { useLumen } from "./state/store";
 import { setApiToken } from "./api/client";
 import { loadEntryChoice, loadSession, saveSession, SESSION_EVENT } from "./auth/auth";
@@ -22,7 +24,6 @@ import { applyTheme, themeForWorld } from "./theme/theme";
 import demo from "./data/demo-world.json";
 import type { World } from "./types";
 
-/** Last-resort safety net: a crashed route shows a message, never a blank page. */
 class RouteBoundary extends Component<{ children: ReactNode }, { failed: string | null }> {
   state = { failed: null as string | null };
   static getDerivedStateFromError(e: unknown): { failed: string | null } {
@@ -53,21 +54,25 @@ class RouteBoundary extends Component<{ children: ReactNode }, { failed: string 
   }
 }
 
-export default function App() {  const switchUser = useLumen((s) => s.switchUser);
+function AppContent() {
+  const switchUser = useLumen((s) => s.switchUser);
   const activeWorld = useLumen((s) => s.world);
   const [loginOpen, setLoginOpen] = useState(false);
   const [entryOpen, setEntryOpen] = useState(false);
-  const [tutorialOpen, setTutorialOpen] = useState(() => loadEntryChoice() !== null && !tutorialSeen());
+  // Cinematic reels stay as the fallback briefing; the mouse-moving onboarding
+  // (same tour first-time explorers get on the home page) opens on demand.
+  // Skip the reels on first run — the Landing tour covers it and marks them seen.
+  const [tutorialOpen, setTutorialOpen] = useState(() => loadEntryChoice() !== null && landingOnboardingSeen() && !tutorialSeen());
+  const [tourOpen, setTourOpen] = useState(false);
   const [entryMode, setEntryMode] = useState<EntryMode | null>(() => loadEntryChoice());
   const [signedIn, setSignedIn] = useState(() => loadSession() !== null);
   const [gateOpen, setGateOpen] = useState(() => isMobileDevice() && !mobileGateDismissed());
   const { lang, setLang } = useLang();
-  // whoever signs in/out, their game data swaps in live — no page reload
+
   useEffect(() => {
     switchUser();
     const onSession = () => {
       useLumen.getState().switchUser();
-      // open to all: the gate never pops on its own (navbar toggle opens it)
       const session = loadSession();
       setSignedIn(!!session);
       setEntryMode(loadEntryChoice());
@@ -83,7 +88,6 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
     };
   }, [switchUser]);
 
-  // Discord OAuth landing: ?session=&user=[&did=&uname=&avatar=] → signed in
   useEffect(() => {
     try {
       const q = new URLSearchParams(window.location.search);
@@ -125,11 +129,11 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
       <nav className="nav">
         <b className="nav-brand"><Logo size={30} /> Mythio</b>
         <div className="nav-center">
-          <Link to="/">{t("nav.dossier", lang)}</Link>
-          <Link to="/explore">{t("nav.archive", lang)}</Link>
-          <Link to="/play">{t("nav.surface", lang)}</Link>
-          <Link to="/create">{t("nav.planner", lang)}</Link>
-          <Link to="/studio">{t("nav.control", lang)}</Link>
+          <Link id="nav-dossier" to="/" title={t("nav.what.dossier", lang)}>{t("nav.dossier", lang)}</Link>
+          <Link id="nav-archive" to="/explore" data-tour="nav-archive" title={t("nav.what.archive", lang)}>{t("nav.archive", lang)}</Link>
+          <Link id="nav-surface" to="/play" data-tour="nav-surface" title={t("nav.what.surface", lang)}>{t("nav.surface", lang)}</Link>
+          <Link id="nav-planner" to="/create" data-tour="nav-planner" title={t("nav.what.planner", lang)}>{t("nav.planner", lang)}</Link>
+          <Link id="nav-control" to="/studio" title={t("nav.what.control", lang)}>{t("nav.control", lang)}</Link>
         </div>
         <div className="nav-right">
           {!signedIn && (
@@ -146,8 +150,7 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
             value={lang}
             onChange={(e) => setLang(e.target.value as LangId)}
             title={t("nav.language", lang)}
-            className="btn-ghost"
-            style={{ padding: "4px 6px" }}
+            className="nav-select"
           >
             {LANGS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
           </select>
@@ -156,7 +159,7 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
             className="btn-ghost"
             style={{ padding: "4px 10px" }}
             title={t("nav.tutTitle", lang)}
-            onClick={() => setTutorialOpen(true)}
+            onClick={() => setTourOpen(true)}
           >
             {t("nav.tutorial", lang)}
           </button>
@@ -174,16 +177,22 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
         <Route path="/privacy" element={<Privacy />} />
       </Routes>
       </RouteBoundary>
-      <footer style={{ borderTop: "1px solid var(--border)", padding: "14px 22px", display: "flex", gap: 16, alignItems: "center", fontSize: 12 }} className="muted">
-        <span>© 2026 xtharshh · Mythio — all rights reserved</span>
+      <footer className="footer">
+        <span className="footer-brand"><Logo size={22} /> Mythio</span>
+        <span className="footer-status"><span className="blink" />All systems nominal</span>
+        <span className="footer-tag">Forge any story into a playable world</span>
         <span style={{ flex: 1 }} />
         <Link to="/terms">Terms</Link>
         <Link to="/privacy">Privacy</Link>
         <a href="https://buymeacoffee.com/xtharshh" target="_blank" rel="noreferrer">Support</a>
+        <a href="https://instagram.com/xt.harshh" target="_blank" rel="noreferrer" title="xtharshh on Instagram">@xt.harshh</a>
+        <span className="muted">© 2026 xtharshh</span>
       </footer>
+      <Watermark />
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
       {gateOpen && <MobileGate onContinue={() => { dismissMobileGate(); setGateOpen(false); }} />}
       {tutorialOpen && <Tutorial onClose={() => setTutorialOpen(false)} />}
+      {tourOpen && <LandingTutorial onClose={() => setTourOpen(false)} />}
       {entryOpen && (
         <EntryModal
           onPick={(mode) => {
@@ -198,3 +207,5 @@ export default function App() {  const switchUser = useLumen((s) => s.switchUser
     </Router>
   );
 }
+
+export default AppContent;

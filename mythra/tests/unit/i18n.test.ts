@@ -39,8 +39,8 @@ describe("i18n (every country reads the mission)", () => {
     expect(getLang()).toBe("en");
     setLang("hi");
     expect(getLang()).toBe("hi");
-    expect(t("nav.archive", "hi")).toBe("अभिलेख");
-    expect(t("nav.archive", "xx" as LangId)).toBe("Archive");
+    expect(t("nav.archive", "hi")).toBe("कहानियाँ");
+    expect(t("nav.archive", "xx" as LangId)).toBe("Stories");
     expect(t("no.such.key", "hi")).toBe("no.such.key");
     expect(tutorialSteps("es")[0].title.length).toBeGreaterThan(0);
   });

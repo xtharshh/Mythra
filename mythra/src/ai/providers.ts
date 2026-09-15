@@ -272,10 +272,22 @@ export function buildWorldPrompt(input: WorldGenerationInput): { system: string;
     "Copy every enum EXACTLY as listed — invented values are rejected. Conditions are always OBJECTS like {type:'all',conditions:[]} — never strings, never missing.",
     "Shape: {id, ownerId:'ai-director', name, slug, description, theme(mars|space|ocean|forest|fantasy|cyberpunk|ancient_ruins|desert|horror|post_apocalyptic|custom), status:'draft', visibility:'private', difficulty(beginner|easy|medium|hard|expert), version:1,",
     "environment:{type(same 11 theme ids),skyColor hex,fogColor hex,primaryColor hex,secondaryColor hex,gravity number,atmosphere(normal|thin|underwater|none),weather(clear|rain|snow|fog|dust_storm|storm|none),timeOfDay(day|night|sunset|dynamic),terrainSeed int,ambientIntensity 0..1},",
+    "Dress the palette to the theme (never default red dust): ocean→deep blues + teal fog, forest→greens + mist, desert→sand + heat haze, mars→rust red, space→near-black + violet nebula, horror→ash grey + blood-red fog, fantasy→teal + violet, cyberpunk→neon blue + magenta, ancient_ruins→sandstone + gold dusk, post_apocalyptic→grey-brown + ember orange, custom→fit the brief.",
+    "Road/city/driving/highway stories are cyberpunk (neon streets) or custom — NEVER mars, desert or post_apocalyptic.",
     "story:{title,premise,background,centralConflict,playerRole,knownFacts[3 strings],hiddenTruths[2 strings],tone(peaceful|mysterious|dark|adventurous|humorous|epic),canonicalEnding},",
-    "locations[]:{id,name,description,position[x,y,z within ±55],radius positive,locked boolean,tags[]}, objects[]:{id,type(building|door|terminal|resource_node|vehicle|artifact|note|map|portal|npc|container|machine|landmark|crystal|creature),modelId(console|solar|rover|hatch|beacon|drone|locker|core|helmet|recorder|glyphwall|maptable|skychime|scrap|campfire|tent|tree|torch|crystal),name,description,locationId,position,rotation[0,0,0],scale[1,1,1],interaction{kind(inspect|collect|solve|talk|activate|repair|build),prompt},visibility(visible|hidden|locked)},",
+    "locations[]:{id,name,description,position[x,y,z within ±55],radius positive,locked boolean,tags[]}, objects[]:{id,type(building|door|terminal|resource_node|vehicle|artifact|note|map|portal|npc|container|machine|landmark|crystal|creature),modelId(console|solar|rover|hatch|beacon|drone|locker|core|helmet|recorder|glyphwall|maptable|skychime|scrap|campfire|tent|tree|torch|crystal|road|streetlamp|trafficlight|bench|trashbin|mailbox|hydrant|busstop|car|truck|bus|motorcycle|bicycle|boat|house|bed|table|chair|sofa|floorlamp|bookshelf|tv|fridge|desk|watercooler|printer|bush|flower|cactus|palmtree|pond|fountain|statue|billboard|windmill|watertower|gaspump|barrel|ladder|telescope|radio|phonebooth — EXACT catalog id, never invented; match the brief to the MODEL CATALOG lines below),name,description,locationId,position,rotation[0,0,0],scale[1,1,1],interaction{kind(inspect|collect|solve|talk|activate|repair|build),prompt},visibility(visible|hidden|locked)},",
+    "MODEL CATALOG — every object modelId MUST be one of these exact ids (unknown ids render as a crate):",
+    "mission gear: console (control desk), solar (panel array), rover (Mars rover), hatch (sealed door), beacon (signal fire), drone (hover bot), locker (gear cabinet), core (reactor), helmet, recorder (audio log), glyphwall (rune wall), maptable, skychime, scrap (salvage heap), campfire, tent, tree, torch, crystal (glowing cluster).",
+    "streets & rides — for ANY road/city/driving brief: road (asphalt + curbs + lane lines + zebra crossing), streetlamp (glowing lamp), trafficlight (cycles red/amber/green), busstop (shelter + bench), car, truck, bus, motorcycle, bicycle, bench, trashbin, mailbox, hydrant, gaspump (fuel station).",
+    "homes & interiors: house (door + lit windows + chimney), bed, table, chair, sofa, floorlamp, bookshelf, tv, fridge, desk, watercooler, printer, boat.",
+    "nature & cities: building (multi-story tower, lit windows, roof beacon), bush, flower, cactus, palmtree, pond, fountain, statue, billboard, windmill, watertower, barrel, ladder, telescope, radio, phonebooth.",
+    "metro & stations: train (metro carriage), rails (twin track + sleepers), platform (slab + canopy + bench), ticketgate (posts + barrier arm), tunnel (portal mouth), stationsign (glowing board).",
+    "RULE: every street scene gets road + streetlamp + at least one ride (car/bus/truck); every city scene gets building + billboard; homes get house + furniture. Repeat models across locations for avenues and fleets.",
+    "ROAD LAYOUT — roads must form ONE continuous avenue, never scattered slabs: place every road modelId on the SAME x coordinate (x=0), with z centers spaced exactly 6 apart (e.g. -12, -6, 0, 6, 12), rotation [0,0,0], scale [1,1,1]. Line streetlamps and trafficlights at x=-3.2 and x=3.2 using the same z centers. Face buildings at x=±8. COMPLETENESS: a street tale MUST include ≥3 road + ≥3 streetlamp + ≥1 trafficlight + ≥2 rides + ≥1 building — a road prompt with missing pieces is rejected.",
+    "METRO LAYOUT — a metro station is ONE connected line, never scattered props: rails on x=0 with z centers spaced exactly 6 apart (the track), platforms at x=±4.5 facing the rails, ticketgates in a row at the concourse end (z = lowest platform z - 8), stationsigns on every platform, tunnels capping the track ends (z = ±(last rail z + 8)). Trains sit ON rails (same x/z, y=0.35). COMPLETENESS: a metro tale MUST include ≥2 rails + ≥1 platform + ≥2 ticketgate + ≥1 train + ≥1 tunnel + ≥1 stationsign. Gate missions with item_owned (ticket) and puzzle_solved (timetable) conditions so Concourse → Gates → Platform → Train → Tunnel unlocks in order.",
     "characters[]:{id,name,role,dialogue[string],locationId},resources[]:{id,name,description,category(material|energy|tool|key_item|food|oxygen|currency),stackable boolean,maxStack int},",
     "missions[]:{id,title,description,type(investigation|collection|construction|repair|exploration|puzzle|rescue|survival|delivery|conversation|discovery),order,difficulty(beginner|easy|medium|hard|expert),prerequisites[] (condition objects only, e.g. {type:'item_owned',itemId,quantity} — empty array when none),objectives[]{id,type(collect_item|reach_location|inspect_object|solve_puzzle|repair_object|build_structure|talk_to_npc|activate_machine|discover_clue|deliver_item|survive_event),description,optional boolean} min 1,rewards[] ({itemId,quantity} objects, never strings),startCondition{type:'all',conditions:[]},completionCondition{type:'all',conditions:[{type:'item_owned',itemId,quantity}]} (real condition object),hidden:false,optional:false,estimatedMinutes},",
+    "Condition field rules (missing fields are REJECTED): item_owned needs {itemId,quantity number 1+}; mission_completed needs {missionId}; clue_discovered needs {clueId}; object_inspected needs {objectId}; puzzle_solved needs {puzzleId}; location_reached needs {locationId}; flag_equals needs {key,value}; all/any need {conditions:[...]}; not needs {condition}. Example: {type:'all',conditions:[{type:'item_owned',itemId:'metal',quantity:2}]}.",
     "clues[]:{id,title,text,type(note|symbol|audio|visual|object|dialogue|map|environmental|code|pattern|coordinate),locationId,discoveryMethod(inspect|collect|solve|talk|observe|activate|combine),visibility(visible|hidden|locked|requires_item|requires_mission),importance(minor|normal|critical),misleading:false,optional},",
     "clueConnections[]:{fromClueId,toClueId,relation(reveals|points_to|unlocks|combines_with|explains|contradicts|misdirects)},puzzles[]:{id,title,description,type(sequence|logic|code|symbol|circuit|map|dialogue|resource|spatial|observation),difficulty,locationId,relatedClueIds[],inputs[{id,label,kind(text|choice|sequence)}],hints[{order,text}],rewards[] (same {itemId,quantity} objects),solutionHash('hash:'+lowercase solution),solution},",
     "endings[]:{id,title,description,condition{type:'all',conditions:[]},secret:false}, permissions(all false except allowVisitors true, contributionMode 'approval_required'), settings:{sprintEnabled:true,worldBounds:60},",
@@ -545,6 +557,25 @@ export function repairWorldShape(parsed: unknown): void {
     }
     if (typeof o.visibility !== "string" || !["visible", "hidden", "locked"].includes(o.visibility)) o.visibility = "visible";
   }
+  // avenue guarantee: near-aligned road slabs snap to one shared x so the
+  // avenue reads continuous; true grids (spread > 4) are left alone. Pure.
+  {
+    const roads = list((w as { objects?: unknown }).objects).filter(
+      (o) => o.modelId === "road" && Array.isArray(o.position),
+    );
+    const xs = roads
+      .map((o) => (o.position as unknown[])[0])
+      .filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+    if (xs.length >= 2) {
+      const spread = Math.max(...xs) - Math.min(...xs);
+      if (spread > 0 && spread <= 4) {
+        const mid = xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+        for (const o of roads) {
+          (o.position as unknown[])[0] = mid;
+        }
+      }
+    }
+  }
   // top-level enums models paraphrase
   const ww = w as Record<string, unknown>;
   if (ww.status !== "draft" && ww.status !== "testing" && ww.status !== "published" && ww.status !== "archived") ww.status = "draft";
@@ -590,9 +621,111 @@ const CONDITION_TYPES = [
   "puzzle_solved", "location_reached", "flag_equals", "all", "any", "not",
 ];
 
-/** A condition object the engine can actually evaluate. Pure. */
-function isConditionLike(v: unknown): boolean {
-  return !!v && typeof v === "object" && CONDITION_TYPES.includes(String((v as Record<string, unknown>).type ?? ""));
+/** Paraphrased condition types small models invent ("mission_complete",
+ *  "collect_item", …) → the contract's exact ids. Pure. */
+const CONDITION_TYPE_ALIASES: Record<string, string> = {
+  mission_complete: "mission_completed",
+  mission_done: "mission_completed",
+  complete_mission: "mission_completed",
+  mission: "mission_completed",
+  clue_found: "clue_discovered",
+  discover_clue: "clue_discovered",
+  find_clue: "clue_discovered",
+  clue: "clue_discovered",
+  has_item: "item_owned",
+  collect_item: "item_owned",
+  own_item: "item_owned",
+  get_item: "item_owned",
+  item: "item_owned",
+  inspect: "object_inspected",
+  inspect_object: "object_inspected",
+  interact: "object_inspected",
+  object: "object_inspected",
+  puzzle_complete: "puzzle_solved",
+  solve_puzzle: "puzzle_solved",
+  puzzle: "puzzle_solved",
+  reach_location: "location_reached",
+  reach: "location_reached",
+  visit: "location_reached",
+  location: "location_reached",
+  flag: "flag_equals",
+};
+
+/** Deep-repair any value into a valid condition object, or null when it is
+ *  beyond rescue (strings, unknown types, missing refs). Fixes the exact
+ *  breakage small directors ship: paraphrased types, `item` instead of
+ *  `itemId`, `count` instead of `quantity`, missing `quantity`, and broken
+ *  entries nested inside `all`/`any`/`not`. Pure. */
+function repairConditionValue(v: unknown): Record<string, unknown> | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const src = v as Record<string, unknown>;
+  const rawType = String(src.type ?? "").toLowerCase().trim().replace(/[\s-]+/g, "_");
+  const type = CONDITION_TYPES.includes(rawType) ? rawType : CONDITION_TYPE_ALIASES[rawType];
+  if (!type) return null;
+  const asRef = (val: unknown): string | null => {
+    if (typeof val === "number" && Number.isFinite(val)) return String(val);
+    if (typeof val === "string" && val.trim()) return val.trim();
+    return null;
+  };
+  const pick = (...keys: string[]): string | null => {
+    for (const k of keys) {
+      const s = asRef(src[k]);
+      if (s) return s;
+    }
+    return null;
+  };
+  switch (type) {
+    case "mission_completed": {
+      const id = pick("missionId", "mission", "missionName", "id");
+      return id ? { type, missionId: id } : null;
+    }
+    case "clue_discovered": {
+      const id = pick("clueId", "clue", "clueName", "id");
+      return id ? { type, clueId: id } : null;
+    }
+    case "item_owned": {
+      const id = pick("itemId", "item", "itemName", "resourceId", "id");
+      if (!id) return null;
+      let q: unknown = src.quantity ?? src.count ?? src.amount ?? src.qty ?? 1;
+      if (typeof q === "string" && q.trim() !== "" && !Number.isNaN(Number(q))) q = Number(q);
+      const qty = typeof q === "number" && Number.isFinite(q) ? Math.max(1, Math.floor(q)) : 1;
+      return { type, itemId: id, quantity: qty };
+    }
+    case "object_inspected": {
+      const id = pick("objectId", "object", "objectName", "target", "targetId", "id");
+      return id ? { type, objectId: id } : null;
+    }
+    case "puzzle_solved": {
+      const id = pick("puzzleId", "puzzle", "puzzleName", "id");
+      return id ? { type, puzzleId: id } : null;
+    }
+    case "location_reached": {
+      const id = pick("locationId", "location", "locationName", "place", "id");
+      return id ? { type, locationId: id } : null;
+    }
+    case "flag_equals": {
+      const key = pick("key", "flag", "name");
+      if (!key) return null;
+      const value = src.value ?? src.val ?? true;
+      return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+        ? { type, key, value }
+        : { type, key, value: true };
+    }
+    case "all":
+    case "any": {
+      const raw = Array.isArray(src.conditions) ? src.conditions : src.conditions === undefined ? [] : [src.conditions];
+      const conditions = raw
+        .map(repairConditionValue)
+        .filter((c): c is Record<string, unknown> => c !== null);
+      return { type, conditions };
+    }
+    case "not": {
+      const inner = repairConditionValue(src.condition);
+      return inner ? { type, condition: inner } : null;
+    }
+    default:
+      return null;
+  }
 }
 
 /** Drop invented prerequisite entries; reset broken required conditions to
@@ -605,16 +738,26 @@ function repairConditions(w: {
   const list = (v: unknown): Array<Record<string, unknown>> => (Array.isArray(v) ? (v as Array<Record<string, unknown>>) : []);
   const neutral = () => ({ type: "all", conditions: [] });
   for (const m of list(w.missions)) {
-    if (Array.isArray(m.prerequisites)) m.prerequisites = m.prerequisites.filter(isConditionLike);
-    if (!isConditionLike(m.startCondition)) m.startCondition = neutral();
-    if (!isConditionLike(m.completionCondition)) m.completionCondition = neutral();
-    if (m.failureCondition !== undefined && !isConditionLike(m.failureCondition)) delete m.failureCondition;
+    m.prerequisites = Array.isArray(m.prerequisites)
+      ? m.prerequisites.map(repairConditionValue).filter((c): c is Record<string, unknown> => c !== null)
+      : [];
+    m.startCondition = repairConditionValue(m.startCondition) ?? neutral();
+    m.completionCondition = repairConditionValue(m.completionCondition) ?? neutral();
+    if (m.failureCondition !== undefined) {
+      const fixed = repairConditionValue(m.failureCondition);
+      if (fixed) m.failureCondition = fixed;
+      else delete m.failureCondition;
+    }
   }
   for (const e of list(w.endings)) {
-    if (!isConditionLike(e.condition)) e.condition = neutral();
+    e.condition = repairConditionValue(e.condition) ?? neutral();
   }
   for (const l of list(w.locations)) {
-    if (l.unlockCondition !== undefined && !isConditionLike(l.unlockCondition)) delete l.unlockCondition;
+    if (l.unlockCondition !== undefined) {
+      const fixed = repairConditionValue(l.unlockCondition);
+      if (fixed) l.unlockCondition = fixed;
+      else delete l.unlockCondition;
+    }
   }
 }
 
@@ -639,7 +782,24 @@ const OBJECT_TYPE_ALIASES: Record<string, string> = {
   gate: "door", entrance: "door", exit: "door",
   car: "vehicle", truck: "vehicle", bike: "vehicle",
 };
-const MODEL_IDS = ["console", "solar", "rover", "hatch", "beacon", "drone", "locker", "core", "helmet", "recorder", "glyphwall", "maptable", "skychime", "scrap", "campfire", "tent", "tree", "torch", "crystal"];
+const MODEL_IDS = [
+  // mission gear
+  "console", "solar", "rover", "hatch", "beacon", "drone", "locker", "core",
+  "helmet", "recorder", "glyphwall", "maptable", "skychime", "scrap",
+  "campfire", "tent", "tree", "torch", "crystal",
+  // streets & rides
+  "road", "streetlamp", "trafficlight", "bench", "trashbin", "mailbox",
+  "hydrant", "busstop", "car", "truck", "bus", "motorcycle", "bicycle",
+  // homes & interiors
+  "boat", "house", "bed", "table", "chair", "sofa", "floorlamp", "bookshelf",
+  "tv", "fridge", "desk", "watercooler", "printer",
+  // nature & cities
+  "bush", "flower", "cactus", "palmtree", "pond", "fountain", "statue",
+  "billboard", "windmill", "watertower", "gaspump", "barrel", "ladder",
+  "telescope", "radio", "phonebooth",
+  // metro pack
+  "train", "rails", "platform", "ticketgate", "tunnel", "stationsign",
+];
 const INTERACTION_KINDS = ["inspect", "collect", "solve", "talk", "activate", "repair", "build"];
 const CLUE_TYPES = ["note", "symbol", "audio", "visual", "object", "dialogue", "map", "environmental", "code", "pattern", "coordinate"];
 const DISCOVERY_METHODS = ["inspect", "collect", "solve", "talk", "observe", "activate", "combine"];
@@ -669,6 +829,89 @@ export function normalizeThemeId(value: unknown): string {
     if (v.includes(id) || id.includes(v)) return id;
   }
   return String(value ?? "");
+}
+
+/** Canonical sky/fog/ground/accent per theme. Models default to red dust
+ *  for EVERYTHING (a highway tale paints Mars), so generation enforces the
+ *  palette — the 3D scene and the site theme paint straight from these.
+ *  `custom` keeps the model's own colors. Pure. */
+export const THEME_PALETTES: Record<string, { sky: string; fog: string; primary: string; secondary: string }> = {
+  mars: { sky: "#1a0b2e", fog: "#b5533c", primary: "#c1553b", secondary: "#ff6b35" },
+  space: { sky: "#02020a", fog: "#1e1b4b", primary: "#1e293b", secondary: "#8b5cf6" },
+  ocean: { sky: "#04121f", fog: "#155e75", primary: "#0c4a6e", secondary: "#22d3ee" },
+  forest: { sky: "#0a1408", fog: "#4d7c0f", primary: "#3f6212", secondary: "#a3e635" },
+  fantasy: { sky: "#120a2e", fog: "#6d28d9", primary: "#1e3a5f", secondary: "#2dd4bf" },
+  cyberpunk: { sky: "#0b0620", fog: "#3b2d6e", primary: "#23262f", secondary: "#ec4899" },
+  ancient_ruins: { sky: "#2b1a08", fog: "#b98a3b", primary: "#a67c3b", secondary: "#fbbf24" },
+  desert: { sky: "#2b1608", fog: "#d99a55", primary: "#c99a5b", secondary: "#f59e0b" },
+  horror: { sky: "#0a0a0a", fog: "#7f1d1d", primary: "#3f3f46", secondary: "#ef4444" },
+  post_apocalyptic: { sky: "#171310", fog: "#92600a", primary: "#57534e", secondary: "#fb923c" },
+};
+
+/** Sync theme + environment.type and paint the canonical palette. Pure. */
+export function normalizeEnvironmentForTheme(parsed: unknown): void {
+  if (!parsed || typeof parsed !== "object") return;
+  const w = parsed as { theme?: unknown; environment?: Record<string, unknown> | null };
+  const theme = normalizeThemeId(w.theme);
+  if (theme) {
+    w.theme = theme;
+    if (w.environment && typeof w.environment === "object") {
+      w.environment.type = theme;
+      const pal = THEME_PALETTES[theme];
+      if (pal) {
+        w.environment.skyColor = pal.sky;
+        w.environment.fogColor = pal.fog;
+        w.environment.primaryColor = pal.primary;
+        w.environment.secondaryColor = pal.secondary;
+      }
+    }
+  }
+}
+
+const STRONG_ROAD_WORDS = ["highway", "traffic", "driving", "street", "crosswalk", "motorway", "freeway", "pedestrian", "taxi"];
+const WEAK_ROAD_WORDS = ["road", "drive", "car", "vehicle", "city", "bus", "signal"];
+const MARS_WORDS = ["mars", "martian", "colony", "astronaut", "cosmonaut", "rover", "regolith", "olympus", "valles", "sol "];
+const BARREN_THEMES = ["mars", "desert", "post_apocalyptic", "space"];
+
+/** A highway tale painted red-dust is a misfiled theme: when the story is
+ *  clearly about roads/city/driving and nothing Martian, move it to
+ *  cyberpunk (neon streets) before the palette pass. Pure. */
+export function retargetRoadTheme(parsed: unknown, briefText: string): void {
+  if (!parsed || typeof parsed !== "object") return;
+  const w = parsed as {
+    theme?: unknown;
+    name?: unknown; description?: unknown;
+    story?: { premise?: unknown; background?: unknown; centralConflict?: unknown } | null;
+  };
+  const theme = normalizeThemeId(w.theme);
+  // barren themes misfiled for roads — plus `custom` tales wearing a
+  // red-dust palette (the model picks custom + Mars colors for highways)
+  const retargetable = BARREN_THEMES.includes(theme) || theme === "custom";
+  if (!retargetable) return;
+  const hay = [
+    briefText,
+    String(w.name ?? ""),
+    String(w.description ?? ""),
+    String(w.story?.premise ?? ""),
+    String(w.story?.background ?? ""),
+    String(w.story?.centralConflict ?? ""),
+  ].join("\n").toLowerCase();
+  // one strong road word, or two weak ones ("business" alone must not flip a tale)
+  const strongHit = STRONG_ROAD_WORDS.some((k) => hay.includes(k));
+  const weakHits = WEAK_ROAD_WORDS.filter((k) => hay.includes(k)).length;
+  const roadHit = strongHit || weakHits >= 2;
+  const marsHit = MARS_WORDS.some((k) => hay.includes(k));
+  if (roadHit && !marsHit) w.theme = "cyberpunk";
+}
+
+/** Heal an already-saved world: road tales misfiled as Mars get moved to
+ *  neon streets and every fixed theme gets its canonical palette. Returns
+ *  true when the theme id changed (so callers can tell the explorer). Pure. */
+export function healWorldTheme(world: World): boolean {
+  const before = normalizeThemeId(world.theme);
+  retargetRoadTheme(world, "");
+  normalizeEnvironmentForTheme(world);
+  return normalizeThemeId(world.theme) !== before;
 }
 
 /** One chat round with any provider — keys rotate on 429/bad-key/5xx so a
@@ -774,11 +1017,15 @@ export async function generateWorldPlan(input: WorldGenerationInput, cfg: AIConf
   if (providerNeedsKey(cfg.provider) && !key) throw new Error("Add your own API key below to create story (stored only in this browser).");
   const { system, user } = buildWorldPrompt(input);
   // models are stochastic — one automatic retry before giving up to Mock
-  // (never retry rate limits: that just burns more quota)
+  // (never retry rate limits: that just burns more quota). The retry carries
+  // the validator's field report so the model fixes exactly what broke.
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await generateWorldPlanOnce(cfg, model, system, user);
+      const retryNote = attempt === 0 || !lastError
+        ? ""
+        : `\nYour previous output was REJECTED (${lastError}). Fix ONLY those fields, keep everything else identical, and output the FULL JSON again.`;
+      return await generateWorldPlanOnce(cfg, model, system, user + retryNote);
     } catch (e) {
       lastError = e instanceof Error ? e.message : "generation failed";
       if (/rate-limited/i.test(lastError)) break;
@@ -788,7 +1035,9 @@ export async function generateWorldPlan(input: WorldGenerationInput, cfg: AIConf
 }
 
 async function generateWorldPlanOnce(cfg: AIConfig, model: string, system: string, user: string): Promise<World> {
-  const jsonMode = cfg.provider === "openai" || cfg.provider === "openrouter" || cfg.provider === "groq" || cfg.provider === "mistral" || cfg.provider === "nim";
+  // response_format:json_object is unreliable on NVIDIA NIM (400s on
+  // gpt-oss) — extractJson already strips fences, so plain text is safer.
+  const jsonMode = cfg.provider === "openai" || cfg.provider === "openrouter" || cfg.provider === "groq" || cfg.provider === "mistral";
   // per-cloud output ceilings (Groq/Mistral refuse past ~8k)
   const maxTokens = !jsonMode ? undefined : cfg.provider === "groq" || cfg.provider === "mistral" ? 8000 : 16000;
   const raw = await chatCompletion(cfg, model, system, user, { jsonMode, maxTokens });
@@ -806,6 +1055,9 @@ async function generateWorldPlanOnce(cfg: AIConfig, model: string, system: strin
       w.environment.type = normalizeThemeId(w.environment.type);
     }
     repairWorldShape(parsed);
+    // highway tales misfiled as Mars → neon streets; then paint the canon
+    retargetRoadTheme(parsed, user);
+    normalizeEnvironmentForTheme(parsed);
   }
   const checked = worldSchema.safeParse(parsed);
   if (!checked.success) {

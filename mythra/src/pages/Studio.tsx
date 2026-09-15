@@ -14,39 +14,39 @@ export default function Studio() {
     <div className="layout">
       <div className="case-kicker">◈ mission control · {world.slug} · v{world.version}</div>
       <h2 className="case-title" style={{ fontSize: 34 }}>Flight <em>control.</em></h2>
-      <div className="row" style={{ marginTop: 6 }}>
+      <div className="tabs" role="tablist" style={{ marginTop: 10 }}>
         {(["missions", "clues", "story", "versions", "validate", "test"] as const).map((t) => (
-          <button key={t} className={tab === t ? "btn" : "btn-ghost"} onClick={() => setTab(t)}>{t}</button>
+          <button key={t} role="tab" aria-selected={tab === t} className={`tab${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
       {tab === "missions" && (
-        <div className="grid" style={{ marginTop: 12 }}>
+        <div className="ops-list" style={{ marginTop: 12 }}>
           {world.missions.map((m) => (
-            <div className="card" key={m.id}>
-              <div className="case-kicker">ops order {m.order} · {m.id}</div>
-              <label>Mission title</label>
-              <input defaultValue={m.title} onBlur={(e) => {
-                if (!e.target.value.trim() || e.target.value === m.title) return;
-                updateWorld({ ...world, missions: world.missions.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)), updatedAt: new Date().toISOString() });
-                pushLog(`Edited mission: ${m.id}`);
-              }} />
-              <div className="dossier-meta" style={{ marginTop: 6 }}>{m.objectives.length} objectives · {m.optional ? "optional" : "required"} · {m.estimatedMinutes} min</div>
+            <div className="ops-row" key={m.id}>
+              <div className="ops-idx"><b>OPS {m.order}</b><span>{m.id}</span></div>
+              <div className="ops-field"><label>Mission title</label>
+                <input defaultValue={m.title} onBlur={(e) => {
+                  if (!e.target.value.trim() || e.target.value === m.title) return;
+                  updateWorld({ ...world, missions: world.missions.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)), updatedAt: new Date().toISOString() });
+                  pushLog(`Edited mission: ${m.id}`);
+                }} /></div>
+              <div className="dossier-meta ops-meta">{m.objectives.length} objectives · {m.optional ? "optional" : "required"} · {m.estimatedMinutes} min</div>
             </div>
           ))}
         </div>
       )}
       {tab === "clues" && (
-        <div className="grid" style={{ marginTop: 12 }}>
+        <div className="ops-list" style={{ marginTop: 12 }}>
           {world.clues.map((c) => (
-            <div className="card" key={c.id}>
-              <div className="case-kicker">evidence · {c.id}</div>
-              <label>Clue text</label>
-              <textarea rows={3} defaultValue={c.text} onBlur={(e) => {
-                if (!e.target.value.trim() || e.target.value === c.text) return;
-                updateWorld({ ...world, clues: world.clues.map((x) => (x.id === c.id ? { ...x, text: e.target.value } : x)), updatedAt: new Date().toISOString() });
-                pushLog(`Edited clue: ${c.id}`);
-              }} />
-              <div className="dossier-meta">{c.importance} · {c.type} · {c.optional ? "optional" : "required"}</div>
+            <div className="ops-row" key={c.id}>
+              <div className="ops-idx"><b>Evidence</b><span>{c.id}</span></div>
+              <div className="ops-field"><label>Clue text</label>
+                <textarea rows={2} defaultValue={c.text} onBlur={(e) => {
+                  if (!e.target.value.trim() || e.target.value === c.text) return;
+                  updateWorld({ ...world, clues: world.clues.map((x) => (x.id === c.id ? { ...x, text: e.target.value } : x)), updatedAt: new Date().toISOString() });
+                  pushLog(`Edited clue: ${c.id}`);
+                }} /></div>
+              <div className="dossier-meta ops-meta">{c.importance} · {c.type} · {c.optional ? "optional" : "required"}</div>
             </div>
           ))}
         </div>

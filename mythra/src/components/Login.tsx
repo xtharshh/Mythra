@@ -243,7 +243,7 @@ export function AuthButton({ onSignIn }: { onSignIn: () => void }) {
   };
   return (
     <>
-      <button className="btn-ghost" title={`${label} — view profile`} onClick={open} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+      <button className="btn-ghost nav-user" title={`${label} — view profile`} onClick={open} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
         {session.avatar
           ? <img src={session.avatar} alt="" width={18} height={18} style={{ borderRadius: "50%" }} />
           : <Icon name="check" />}

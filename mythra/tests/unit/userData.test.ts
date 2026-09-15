@@ -3,7 +3,7 @@ import demo from "../../src/data/demo-world.json";
 import type { World } from "../../src/types";
 import { clearSession, ownerKey, saveOwner, saveSession } from "../../src/auth/auth";
 import { loadVoiceNoteMetas, saveVoiceNoteMetas } from "../../src/audio/voiceNotes";
-import { mergeCheckpoints, mergeLibrary, useLumen } from "../../src/state/store";
+import { mergeCheckpoints, mergeLibrary, pruneLibraryForPersist, useLumen } from "../../src/state/store";
 
 const world = demo as unknown as World;
 
@@ -155,5 +155,21 @@ describe("username-based game data", () => {
     expect(loadVoiceNoteMetas()).toEqual([]);
     asUser("alice@x.com");
     expect(loadVoiceNoteMetas().map((n) => n.id)).toEqual(["n1"]);
+  });
+
+  it("prunes history but never tales for quota retry", () => {
+    const versions = Array.from({ length: 8 }, (_, i) => ({
+      id: `v${i}`, worldId: "w", versionNumber: i + 1, snapshot: structuredClone(world),
+      createdBy: "t", changeSummary: "t", createdAt: "2026-09-14T10:00:00Z",
+    }));
+    const pruned = pruneLibraryForPersist({
+      worlds: [structuredClone(world)],
+      contributions: Array.from({ length: 150 }, (_, i) => ({ kind: "clue" as const, id: `c${i}` })),
+      versions,
+    });
+    expect(pruned.worlds).toHaveLength(1);
+    expect(pruned.versions).toHaveLength(5);
+    expect(pruned.versions.map((v) => v.versionNumber)).toEqual([8, 7, 6, 5, 4]);
+    expect(pruned.contributions).toHaveLength(100);
   });
 });

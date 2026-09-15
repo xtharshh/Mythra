@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="Silent Mars colony at dusk — habitat domes, rover tracks and a huge red planet">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#070714"/>
+      <stop offset="0.45" stop-color="#2b0f2e"/>
+      <stop offset="0.72" stop-color="#7c2d1e"/>
+      <stop offset="1" stop-color="#c1553b"/>
+    </linearGradient>
+    <radialGradient id="planet" cx="0.38" cy="0.35" r="0.85">
+      <stop offset="0" stop-color="#ffb08a"/>
+      <stop offset="0.4" stop-color="#d97a4e"/>
+      <stop offset="0.7" stop-color="#7c2d1e"/>
+      <stop offset="1" stop-color="#2b0f0a"/>
+    </radialGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a34a2e"/>
+      <stop offset="0.35" stop-color="#7c2d1e"/>
+      <stop offset="1" stop-color="#1c0a06"/>
+    </linearGradient>
+    <linearGradient id="dome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd9a8"/>
+      <stop offset="0.5" stop-color="#ffb45e"/>
+      <stop offset="1" stop-color="#5a2410"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffb45e" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffb45e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <g fill="#f5ecdd" opacity="0.9">
+    <circle cx="120" cy="90" r="2.2"/><circle cx="340" cy="60" r="1.6"/><circle cx="560" cy="120" r="2"/>
+    <circle cx="760" cy="70" r="1.4"/><circle cx="980" cy="110" r="2.4"/><circle cx="1210" cy="60" r="1.6"/>
+    <circle cx="1440" cy="130" r="2"/><circle cx="220" cy="200" r="1.3"/><circle cx="660" cy="190" r="1.5"/>
+    <circle cx="880" cy="210" r="1.2"/><circle cx="1330" cy="220" r="1.7"/><circle cx="1520" cy="70" r="1.5"/>
+    <circle cx="460" cy="250" r="1.2"/><circle cx="1100" cy="250" r="1.4"/><circle cx="60" cy="300" r="1.5"/>
+  </g>
+  <circle cx="1180" cy="300" r="230" fill="url(#glow)"/>
+  <circle cx="1180" cy="300" r="185" fill="url(#planet)"/>
+  <ellipse cx="1115" cy="240" rx="60" ry="26" fill="#7c2d1e" opacity="0.45"/>
+  <ellipse cx="1230" cy="330" rx="80" ry="30" fill="#4a1508" opacity="0.5"/>
+  <ellipse cx="1180" cy="300" rx="262" ry="70" fill="none" stroke="#ffb45e" stroke-width="5" opacity="0.65" transform="rotate(-16 1180 300)"/>
+  <circle cx="1395" cy="150" r="14" fill="#ffd9a8"/>
+  <rect y="560" width="1600" height="340" fill="url(#ground)"/>
+  <ellipse cx="400" cy="600" rx="420" ry="46" fill="#2b0f0a" opacity="0.55"/>
+  <ellipse cx="1200" cy="640" rx="480" ry="60" fill="#2b0f0a" opacity="0.5"/>
+  <path d="M0 620 Q 300 580 620 615 T 1600 600 L1600 900 L0 900 Z" fill="#5a1f10" opacity="0.6"/>
+  <path d="M0 680 Q 420 640 860 675 T 1600 660 L1600 900 L0 900 Z" fill="#3a130a" opacity="0.8"/>
+  <!-- habitat domes -->
+  <g>
+    <ellipse cx="420" cy="560" rx="150" ry="20" fill="#140905" opacity="0.7"/>
+    <path d="M300 560 A120 110 0 0 1 540 560 Z" fill="#2a140c" stroke="url(#dome)" stroke-width="5"/>
+    <path d="M340 560 A80 72 0 0 1 500 560 Z" fill="#ffb45e" opacity="0.22"/>
+    <rect x="405" y="505" width="30" height="55" rx="4" fill="#ffd9a8" opacity="0.85"/>
+    <rect x="300" y="556" width="240" height="12" fill="#0b0605"/>
+    <circle cx="360" cy="530" r="6" fill="#ffd9a8"><animate attributeName="opacity" values="1;0.3;1" dur="2.4s" repeatCount="indefinite"/></circle>
+    <circle cx="480" cy="518" r="5" fill="#ff6b35"><animate attributeName="opacity" values="1;0.2;1" dur="1.8s" repeatCount="indefinite"/></circle>
+  </g>
+  <g>
+    <ellipse cx="700" cy="600" rx="90" ry="13" fill="#140905" opacity="0.7"/>
+    <path d="M630 600 A70 64 0 0 1 770 600 Z" fill="#2a140c" stroke="url(#dome)" stroke-width="4"/>
+    <rect x="690" y="563" width="20" height="37" rx="3" fill="#ffd9a8" opacity="0.8"/>
+  </g>
+  <!-- solar array -->
+  <g transform="rotate(-8 960 600)">
+    <rect x="900" y="545" width="200" height="46" rx="4" fill="#1d4ed8" stroke="#9aa7bd" stroke-width="4"/>
+    <line x1="940" y1="545" x2="940" y2="591" stroke="#9aa7bd" stroke-width="3"/>
+    <line x1="980" y1="545" x2="980" y2="591" stroke="#9aa7bd" stroke-width="3"/>
+    <line x1="1020" y1="545" x2="1020" y2="591" stroke="#9aa7bd" stroke-width="3"/>
+    <line x1="1060" y1="545" x2="1060" y2="591" stroke="#9aa7bd" stroke-width="3"/>
+    <rect x="995" y="591" width="10" height="40" fill="#9aa7bd"/>
+  </g>
+  <!-- rover with headlights -->
+  <g>
+    <ellipse cx="250" cy="740" rx="120" ry="16" fill="#000" opacity="0.5"/>
+    <rect x="160" y="680" width="150" height="44" rx="10" fill="#3a3f4d" stroke="#9aa7bd" stroke-width="3"/>
+    <rect x="180" y="656" width="80" height="30" rx="6" fill="#20242e" stroke="#9aa7bd" stroke-width="3"/>
+    <rect x="188" y="662" width="64" height="18" rx="3" fill="#ffb45e" opacity="0.85"/>
+    <circle cx="195" cy="736" r="26" fill="#14161c" stroke="#9aa7bd" stroke-width="4"/>
+    <circle cx="275" cy="736" r="26" fill="#14161c" stroke="#9aa7bd" stroke-width="4"/>
+    <circle cx="195" cy="736" r="8" fill="#ffb45e"/><circle cx="275" cy="736" r="8" fill="#ffb45e"/>
+    <polygon points="310,692 420,700 420,716 310,708" fill="#ffd9a8" opacity="0.28"/>
+    <circle cx="312" cy="694" r="7" fill="#ffe9c4"/>
+    <circle cx="312" cy="708" r="7" fill="#ffe9c4"/>
+  </g>
+  <!-- explorer silhouette -->
+  <g fill="#0b0605">
+    <circle cx="1240" cy="640" r="18"/>
+    <rect x="1226" y="658" width="28" height="58" rx="10"/>
+    <rect x="1212" y="666" width="12" height="36" rx="6"/>
+    <rect x="1242" y="666" width="12" height="36" rx="6"/>
+    <rect x="1228" y="716" width="10" height="26" rx="5"/>
+    <rect x="1242" y="716" width="10" height="26" rx="5"/>
+    <rect x="1232" y="646" width="18" height="8" rx="3" fill="#ffb45e" opacity="0.9"/>
+  </g>
+  <ellipse cx="1240" cy="748" rx="40" ry="8" fill="#000" opacity="0.5"/>
+  <!-- rover tracks -->
+  <path d="M60 800 Q 300 780 520 795 T 1000 790" stroke="#2b0f0a" stroke-width="8" fill="none" stroke-dasharray="26 18" opacity="0.9"/>
+  <!-- drifting dust -->
+  <g fill="#ffb45e" opacity="0.5">
+    <circle cx="180" cy="480" r="3"/><circle cx="520" cy="430" r="2.4"/><circle cx="820" cy="470" r="3.2"/>
+    <circle cx="1050" cy="420" r="2.2"/><circle cx="1380" cy="500" r="3"/><circle cx="1500" cy="440" r="2.4"/>
+  </g>
+  <rect width="1600" height="900" fill="none" stroke="#ffb45e" stroke-width="2" opacity="0.25"/>
+</svg>

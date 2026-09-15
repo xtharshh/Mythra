@@ -193,88 +193,87 @@ export default function Create() {
       <div className="console" style={{ marginTop: 14 }}>
         <div className="console-bar"><i style={{ background: "#ff5a5a" }} /><i style={{ background: "#fbbf24" }} /><i style={{ background: "#7ddf9a" }} /> Mythio PLANNER · DRAFT BRIEF</div>
         <div className="console-body">
-          <label>Story title (optional — blank lets the AI name it)</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. The silent Mars colony" autoComplete="off" />
-          <label>Expedition brief</label>
-          <textarea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Tell the AI what story to forge…" />
-          <div className="row">
-            <div style={{ minWidth: 180 }}><label>Hazard rating</label>
-              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
-                {(["beginner", "easy", "medium", "hard", "expert"] as Difficulty[]).map((d) => <option key={d} value={d}>{d}</option>)}
-              </select></div>
-            <div style={{ minWidth: 220 }}><label>AI director</label>
-              <select value={cfg.provider} onChange={(e) => pickProvider(e.target.value as AIProviderId)}>
-                {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </select>
-              <div className="row" style={{ marginTop: 6 }}>
-                {cfg.provider === "mock" || cfg.provider === "ollama" ? (
-                  <span className="pill green">No key needed</span>
-                ) : siteKey ? (
-                  <span className="pill green" title="The host set a site key in env — your own key below overrides it">Site key set · yours overrides</span>
-                ) : (
-                  <span className="pill amber">No site key — add yours below</span>
-                )}
-                <span className="dossier-meta">keys: {scopeOwner} · {scopeMode}</span>
-              </div>
+          <section className="p-section">
+            <div className="p-section-head"><span className="p-num">01</span><span className="case-kicker">The brief</span></div>
+            <div className="field"><label>Story title (optional — blank lets the AI name it)</label>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. The silent Mars colony" autoComplete="off" /></div>
+            <div className="field"><label>Expedition brief</label>
+              <textarea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Tell the AI what story to forge…" /></div>
+          </section>
+          <section className="p-section">
+            <div className="p-section-head"><span className="p-num">02</span><span className="case-kicker">The director</span></div>
+            <div className="p-grid">
+              <div className="field"><label>Hazard rating</label>
+                <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
+                  {(["beginner", "easy", "medium", "hard", "expert"] as Difficulty[]).map((d) => <option key={d} value={d}>{d}</option>)}
+                </select></div>
+              <div className="field"><label>AI director</label>
+                <select value={cfg.provider} onChange={(e) => pickProvider(e.target.value as AIProviderId)}>
+                  {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select></div>
             </div>
-          </div>
-          {cfg.provider !== "mock" && needsKey && (
             <div className="row" style={{ marginTop: 10 }}>
-              <button
-                className={cfg.keySource === "system" ? "btn" : "btn-ghost"}
-                style={{ padding: "4px 14px", fontSize: 12 }}
-                title="Use the host's site key from env (spares rotate on limits)"
-                onClick={() => set({ keySource: "system" })}
-              >
-                System key
-              </button>
-              <button
-                className={cfg.keySource === "custom" ? "btn" : "btn-ghost"}
-                style={{ padding: "4px 14px", fontSize: 12 }}
-                title="Use only your own key, pasted below"
-                onClick={() => set({ keySource: "custom" })}
-              >
-                Custom key
-              </button>
-              {cfg.keySource === "system" && (
-                siteKeys.length > 0
-                  ? <span className="pill green">System active · {siteKeys.length} key{siteKeys.length === 1 ? "" : "s"} rotate on limits</span>
-                  : <span className="pill amber">No system key in env</span>
+              {cfg.provider === "mock" || cfg.provider === "ollama" ? (
+                <span className="pill green">No key needed</span>
+              ) : siteKey ? (
+                <span className="pill green" title="The host set a site key in env — your own key below overrides it">Site key set · yours overrides</span>
+              ) : (
+                <span className="pill amber">No site key — add yours below</span>
               )}
+              <span className="dossier-meta">keys: {scopeOwner} · {scopeMode}</span>
             </div>
+          </section>
+          {cfg.provider !== "mock" && needsKey && (
+            <section className="p-section">
+              <div className="p-section-head"><span className="p-num">03</span><span className="case-kicker">The key</span></div>
+              <div className="row">
+                <button
+                  className={cfg.keySource === "system" ? "btn" : "btn-ghost"}
+                  style={{ padding: "4px 14px", fontSize: 12 }}
+                  title="Use the host's site key from env (spares rotate on limits)"
+                  onClick={() => set({ keySource: "system" })}
+                >
+                  System key
+                </button>
+                <button
+                  className={cfg.keySource === "custom" ? "btn" : "btn-ghost"}
+                  style={{ padding: "4px 14px", fontSize: 12 }}
+                  title="Use only your own key, pasted below"
+                  onClick={() => set({ keySource: "custom" })}
+                >
+                  Custom key
+                </button>
+                {cfg.keySource === "system" && (
+                  siteKeys.length > 0
+                    ? <span className="pill green">System active · {siteKeys.length} key{siteKeys.length === 1 ? "" : "s"} rotate on limits</span>
+                    : <span className="pill amber">No system key in env</span>
+                )}
+              </div>
+              {cfg.keySource === "custom" && (
+                <div className="p-grid" style={{ marginTop: 10 }} ref={keyBlockRef} id="ai-key">
+                  <div className="field"><label>Model</label>
+                    <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} placeholder={meta.defaultModel} /></div>
+                  <div className="field"><label>{meta.keyName} — yours, this browser only</label>
+                    <input ref={keyRef} type="password" value={cfg.apiKey} onChange={(e) => set({ apiKey: e.target.value })} placeholder="paste key…" autoComplete="off" /></div>
+                </div>
+              )}
+              {(cfg.provider === "custom" || cfg.provider === "ollama") && (
+                <div className="field"><label>Endpoint URL</label>
+                  <input value={cfg.baseUrl ?? ""} onChange={(e) => set({ baseUrl: e.target.value })} placeholder={endpointFor({ ...cfg, baseUrl: "" }) || "https://…/v1"} /></div>
+              )}
+            </section>
           )}
-          {cfg.provider !== "mock" && cfg.keySource === "custom" && (
-            <div className="row" ref={keyBlockRef} id="ai-key">
-              <div style={{ flex: "2 1 220px" }}><label>Model</label>
-                <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} placeholder={meta.defaultModel} /></div>
-              <div style={{ flex: "3 1 260px" }}><label>{meta.keyName} — yours, this browser only</label>
-                <input ref={keyRef} type="password" value={cfg.apiKey} onChange={(e) => set({ apiKey: e.target.value })} placeholder="paste key…" autoComplete="off" /></div>
+          <section className="p-section p-compile">
+            <div className="p-section-head"><span className="p-num">04</span><span className="case-kicker">Compile</span></div>
+            <div className="dossier-meta">Every AI tale is Zod-checked before filing — broken output never ships; Mock is the eternal fallback. Site keys come from env, your key stays per-explorer ({scopeMode}).</div>
+            <div className="row" style={{ marginTop: 12 }}>
+              <button className="btn" disabled={busy || !prompt.trim() || missingKey || limitedSecs > 0} title={missingKey ? "Add your own API key above to create story" : limitedSecs > 0 ? "Rate-limited — cooling down so retries don't extend it" : `Compile with ${meta.label}`} onClick={() => void run(false)}>
+                <Icon name="spark" size={13} /> {busy ? "Compiling…" : limitedSecs > 0 ? `Limited — retry in ${limitedSecs}s` : `Compile with ${meta.label}`}
+              </button>
+              <button className="btn-ghost" disabled={busy || !prompt.trim()} onClick={() => void run(true)}>Stamp with Mock (no key)</button>
             </div>
-          )}
-          {cfg.provider !== "mock" && cfg.keySource === "system" && (
-            <div className="row" ref={keyBlockRef} id="ai-key">
-              <div style={{ flex: "2 1 220px" }}><label>Model</label>
-                <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} placeholder={meta.defaultModel} /></div>
-              <div style={{ flex: "3 1 260px" }}><label>Key source</label>
-                <div className="dossier-meta" style={{ padding: "10px 0" }}>
-                  {siteKeys.length > 0
-                    ? `System key from env is used${siteKeys.length > 1 ? ` — ${siteKeys.length} spares rotate when one hits limits` : ""}. Flip to Custom to paste yours.`
-                    : "No system key in env — flip to Custom and paste yours."}
-                </div></div>
-            </div>
-          )}
-          {(cfg.provider === "custom" || cfg.provider === "ollama" || cfg.provider === "nim") && (
-            <div><label>Endpoint URL</label>
-              <input value={cfg.baseUrl ?? ""} onChange={(e) => set({ baseUrl: e.target.value })} placeholder={endpointFor({ ...cfg, baseUrl: "" }) || "https://…/v1"} /></div>
-          )}
-          <div className="dossier-meta" style={{ marginTop: 8 }}>Every AI tale is Zod-checked before filing — broken output never ships; Mock is the eternal fallback. Site keys come from env, your key stays per-explorer ({scopeMode}).</div>
-          <div className="row" style={{ marginTop: 12 }}>
-            <button className="btn" disabled={busy || !prompt.trim() || missingKey || limitedSecs > 0} title={missingKey ? "Add your own API key above to create story" : limitedSecs > 0 ? "Rate-limited — cooling down so retries don't extend it" : `Compile with ${meta.label}`} onClick={() => void run(false)}>
-              <Icon name="spark" size={13} /> {busy ? "Compiling…" : limitedSecs > 0 ? `Limited — retry in ${limitedSecs}s` : `Compile with ${meta.label}`}
-            </button>
-            <button className="btn-ghost" disabled={busy || !prompt.trim()} onClick={() => void run(true)}>Stamp with Mock (no key)</button>
-          </div>
-          {error && <div style={{ color: "var(--red)", marginTop: 8 }}>{error}</div>}
+            {error && <div style={{ color: "var(--red)", marginTop: 8 }}>{error}</div>}
+          </section>
         </div>
       </div>
       {previewWorld && (

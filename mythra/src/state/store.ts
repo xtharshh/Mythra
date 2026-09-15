@@ -1,5 +1,6 @@
 // Zustand game store — local single-player state with localStorage persistence (§4.4, §3.1)
 import { create } from "zustand";
+import { healWorldTheme } from "../ai/providers";
 import { applyContribution, snapshotVersion } from "../community/continuity";
 import { ownerKey, saveOwner } from "../auth/auth";
 import { api, apiOn, apiToken } from "../api/client";
@@ -141,6 +142,22 @@ export function mergeCheckpoints(a: Checkpoint[], b: Checkpoint[]): Checkpoint[]
   return pruneCheckpoints([...map.values()]);
 }
 
+/** Trim a shelf to fit localStorage quota: full tales ALWAYS survive —
+ *  only version snapshots (latest 5 per world) and old contributions
+ *  (latest 100) are cut. Pure. */
+export function pruneLibraryForPersist(data: LibraryData): LibraryData {
+  const byWorld = new Map<string, WorldVersion[]>();
+  for (const v of data.versions) {
+    const list = byWorld.get(v.worldId) ?? [];
+    list.push(v);
+    byWorld.set(v.worldId, list);
+  }
+  const versions = [...byWorld.values()].flatMap((list) =>
+    list.sort((a, b) => b.versionNumber - a.versionNumber).slice(0, 5),
+  );
+  return { worlds: data.worlds, contributions: data.contributions.slice(-100), versions };
+}
+
 function readLocal<T>(key: string): T | null {
   try {
     const raw = localStorage.getItem(ownerKey(key));
@@ -200,12 +217,25 @@ export const useLumen = create<LumenStore>((set, get) => ({
   log: ["Welcome to Mythio."],
 
   setWorld: (world) => {
-    set({ world });
+    if (world && healWorldTheme(world)) {
+      get().pushLog(`🎨 ${world.name} re-dressed for neon streets — no more red dust.`);
+    }
+    if (world) {
+      // the playing tale always lives in the shelf too, so a reload reopens
+      // THIS tale — never the demo because the shelf forgot it
+      set((s) => ({ world, worlds: s.worlds.some((x) => x.id === world.id) ? s.worlds : [...s.worlds, world] }));
+      get().persistLibrary();
+    } else {
+      set({ world });
+    }
     try {
       if (world) localStorage.setItem(ownerKey(LAST_KEY), world.id);
     } catch { /* ignore */ }
   },
   addWorld: (w) => {
+    if (healWorldTheme(w)) {
+      get().pushLog(`🎨 ${w.name} re-dressed for neon streets — no more red dust.`);
+    }
     set((s) => ({ worlds: [...s.worlds.filter((x) => x.id !== w.id), w], world: w }));
     try {
       localStorage.setItem(ownerKey(LAST_KEY), w.id);
@@ -381,15 +411,35 @@ export const useLumen = create<LumenStore>((set, get) => ({
     const s = get();
     const data = { worlds: s.worlds, contributions: s.contributions, versions: s.versions };
     const updatedAt = new Date().toISOString();
-    try {
-      // per-username library (guests keep the legacy global key)
-      localStorage.setItem(ownerKey(LIB_KEY), JSON.stringify(data));
-      localStorage.setItem(ownerKey(LIB_META_KEY), JSON.stringify({ updatedAt }));
-    } catch { /* ignore quota */ }
-    // cloud copy (ACID side) — best effort, never blocks the game
-    if (cloudOn()) {
-      void api.pushLibrary(data).catch(() => undefined);
+    const writeShelf = (d: typeof data): boolean => {
+      try {
+        // per-username library (guests keep the legacy global key)
+        localStorage.setItem(ownerKey(LIB_KEY), JSON.stringify(d));
+        localStorage.setItem(ownerKey(LIB_META_KEY), JSON.stringify({ updatedAt }));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (writeShelf(data)) {
+      // cloud copy (ACID side) — best effort, never blocks the game
+      if (cloudOn()) {
+        void api.pushLibrary(data).catch(() => undefined);
+      }
+      return;
     }
+    // shelf outgrew the ~5MB localStorage quota: trim history (full tales
+    // always survive) and retry, so the current tale is never lost on reload
+    const pruned = pruneLibraryForPersist(data);
+    if (writeShelf(pruned)) {
+      set({ contributions: pruned.contributions, versions: pruned.versions });
+      get().pushLog("Shelf trimmed to fit this browser — oldest history archived off, tales kept.");
+      if (cloudOn()) {
+        void api.pushLibrary(pruned).catch(() => undefined);
+      }
+      return;
+    }
+    get().pushLog("⚠ Shelf too large for this browser — reload may reopen the demo. Delete old tales.");
   },
   loadLibrary: () => {
     try {
@@ -448,7 +498,12 @@ export const useLumen = create<LumenStore>((set, get) => ({
       if (!lastId) return false;
       const found = get().worlds.find((w) => w.id === lastId);
       if (!found) return false;
-      set({ world: structuredClone(found) });
+      const reopened = structuredClone(found);
+      if (healWorldTheme(reopened)) {
+        get().pushLog(`🎨 ${reopened.name} re-dressed for neon streets — no more red dust.`);
+        get().updateWorld(reopened);
+      }
+      set({ world: reopened });
       return true;
     } catch {
       return false;

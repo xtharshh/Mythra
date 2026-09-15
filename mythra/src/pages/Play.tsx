@@ -25,12 +25,14 @@ import { triggerObject } from "../three/effects";
 import type { PeerPresence } from "../three/LumenScene";
 import { api, apiOn, apiToken, formatPing, pingApi } from "../api/client";
 import { loadSession } from "../auth/auth";
-import { loadCharacter, encodeSuit, decodeSuit } from "../game/suits";
+import { loadCharacter, encodeSuit, decodeSuit, loadAvatar } from "../game/suits";
 import type { VoiceSettings } from "../audio/voice";
-import { ControlsModal } from "../components/Controls";
+import { InteractiveTutorial, interactiveTutorialSeen, TutorialTrigger } from "../components/InteractiveTutorial";
 import { loadView, saveView } from "../game/controls";
 import type { ViewMode } from "../game/controls";
+import { ControlsModal } from "../components/Controls";
 import { CharacterModal } from "../components/Character";
+import { Watermark } from "../components/Watermark";
 import { MilestoneModal } from "../components/Milestone";
 import { AudioTestModal } from "../components/VoiceTest";
 import type { MilestoneStats } from "../social/milestone";
@@ -62,7 +64,7 @@ export default function Play() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCharacter, setShowCharacter] = useState(false);
-  const [character, setCharacter] = useState(() => loadCharacter());
+  const [character, setCharacter] = useState(() => ({ ...loadCharacter(), body: loadAvatar().body }));
   const playRootRef = useRef<HTMLDivElement>(null);
   const [sideTab, setSideTab] = useState<"missions" | "map" | "journal" | "voice" | "board" | "system">("missions");
   const stopListenRef = useRef<(() => void) | null>(null);
@@ -72,6 +74,11 @@ export default function Play() {
   const [view, setView] = useState<ViewMode>(() => loadView());
   const [ping, setPing] = useState<number | null>(null);
   const hasSuit = (s.inventory["suit"] ?? 0) > 0;
+  const [showInteractiveTutorial, setShowInteractiveTutorial] = useState(() => !interactiveTutorialSeen() && !!s.world);
+
+  const onTutorialComplete = () => {
+    setShowInteractiveTutorial(false);
+  };
 
   /** Milestone moment: toast card + fanfare + spoken line. */
   const celebrate = (name: string, desc: string, spoken: string, fanfare: "confirm" | "mission" = "confirm") => {
@@ -231,7 +238,7 @@ export default function Play() {
     } catch (e) {
       useLumen.getState().pushLog(e instanceof Error ? e.message : "Invite failed.");
     }
-    if (!s.world) {
+    if (!useLumen.getState().world) {
       // reload reopens whoever's last tale (their shelf, their save) —
       // the demo only greets brand-new explorers
       useLumen.getState().loadLibrary();
@@ -352,7 +359,7 @@ export default function Play() {
     let alive = true;
     const beat = async () => {
       const st = useLumen.getState();
-      await api.heartbeat(worldId, st.playerPos, encodeSuit(character.suit, character.accent), roomId ?? undefined);
+      await api.heartbeat(worldId, st.playerPos, encodeSuit(character.suit, character.accent, character.body), roomId ?? undefined);
       const list = await api.peers(worldId, roomId ?? undefined);
       if (!alive || !list) return;
       const me = (loadSession()?.email ?? "").split("@")[0];
@@ -361,7 +368,7 @@ export default function Play() {
           .filter((p) => p.user !== me)
           .map((p) => {
             const spec = decodeSuit(p.suit, p.user, theme);
-            return { user: p.user, pos: p.pos, suit: spec.suit, accent: spec.accent };
+            return { user: p.user, pos: p.pos, suit: spec.suit, accent: spec.accent, body: spec.body };
           }),
       );
     };
@@ -580,7 +587,7 @@ export default function Play() {
   };
 
   return (
-    <div ref={playRootRef} style={{ height: "calc(100vh - 57px)", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+    <div ref={playRootRef} style={{ height: "calc(100vh - 57px)", display: "flex", flexDirection: "column", background: "var(--bg)", position: "relative" }}>
       <div className="row" style={{ padding: "8px 14px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
         <b>{world.name}</b>
         {joining && <span className="pill cyan">Joining race…</span>}
@@ -602,7 +609,7 @@ export default function Play() {
         >
           {listening ? "Listening…" : "Mic"}
         </button>
-        <button className={flyMode ? "btn" : "btn-ghost"} title={hasSuit ? "Toggle flight (F) — Space up, C down" : "Unlock: find the flight suit locker first"} onClick={toggleFly}>
+        <button id="fly-button" className={flyMode ? "btn" : "btn-ghost"} title={hasSuit ? "Toggle flight (F) — Space up, C down" : "Unlock: find the flight suit locker first"} onClick={toggleFly}>
           {flyMode ? "Flying" : "Fly"}
         </button>
         <button className="btn-ghost" title="Top 10 + live solvers for this story" onClick={() => setSideTab("board")}>
@@ -635,14 +642,15 @@ export default function Play() {
                 {ambience ? "Ambience on" : "Ambience off"}
               </button>
               <button className="btn-ghost" onClick={() => { s.reset(); setMenuOpen(false); }}>Reset world</button>
+              <TutorialTrigger>Restart Tutorial</TutorialTrigger>
             </div>
           )}
         </div>
       </div>
       <InventoryStrip world={world} />
       <div className="play-grid" style={{ flex: 1, minHeight: 0, padding: 12 }}>
-        <div style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-          <LumenScene world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
+        <div data-tour="surface-canvas" id="canvas" style={{ minHeight: 420, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
+          <LumenScene key={world.id} world={world} flyMode={flyMode} hasSuit={hasSuit} onInteractRequest={interact} onReachLocation={reach} onPositionChange={(p) => s.movePlayer(p)} onToggleFlyRequest={toggleFly} onTargetChange={setTarget} peers={peers} character={character} view={view} onToggleViewRequest={toggleView} home={s.playerPos} />
           <div className="ping-chip" title={apiOn() ? "Live link to the Mythio API (10s ping)" : "Offline — playing local"}>
             <span className="blink" />ping {formatPing(ping, apiOn())}
           </div>
@@ -667,7 +675,7 @@ export default function Play() {
           )}
           <div className="row" style={{ gap: 6 }}>
             {(["missions", "map", "journal", "voice", "board", "system"] as const).map((t) => (
-              <button key={t} className={sideTab === t ? "btn" : "btn-ghost"} style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setSideTab(t)}>
+              <button key={t} id={t === "missions" ? "missions-tab" : undefined} data-tour={`tab-${t}`} className={sideTab === t ? "btn" : "btn-ghost"} style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setSideTab(t)}>
                 {t === "missions" ? `Missions ${s.completedMissions.length}/${world.missions.length}` : t === "map" ? "Map" : t === "journal" ? `Journal ${s.discoveredClues.length}/${world.clues.length}` : t === "voice" ? "Voice" : t === "board" ? "Board" : "System"}
               </button>
             ))}
@@ -704,7 +712,7 @@ export default function Play() {
       </div>
       {puzzle && <PuzzleModal puzzle={puzzle} onClose={() => { setPuzzleId(null); setTimeout(checkMissions, 50); }} onSolved={(p) => celebrate(`Correct — ${p.title}`, "Puzzle cracked. That answer moved the story.", `Correct answer. ${p.title}, solved.`)} />}
       {showControls && <ControlsModal onClose={() => setShowControls(false)} />}
-      {showCharacter && <CharacterModal onClose={() => { setCharacter(loadCharacter()); setShowCharacter(false); }} />}
+      {showCharacter && <CharacterModal onClose={() => { setCharacter({ ...loadCharacter(), body: loadAvatar().body }); setShowCharacter(false); }} />}
       {showAudio && <AudioTestModal onClose={() => setShowAudio(false)} />}
       {showContribute && <ContributeModal world={world} onClose={() => setShowContribute(false)} />}
       {introOpen && <StoryIntro world={world} onBegin={beginIntro} />}
@@ -712,6 +720,8 @@ export default function Play() {
       {transmissions[0] && <TransmissionModal beat={transmissions[0]} onClose={() => setTransmissions((q) => q.slice(1))} />}
       {milestone && <MilestoneModal stats={milestone} ground={world.environment.primaryColor} onClose={() => setMilestone(null)} />}
       {dialogue && <DialogueModal name={dialogue.name} lines={dialogue.lines} onClose={() => setDialogue(null)} />}
+      {showInteractiveTutorial && <InteractiveTutorial onComplete={onTutorialComplete} />}
+      <Watermark placement="play" />
     </div>
   );
 }

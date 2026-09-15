@@ -9,6 +9,30 @@ export interface Updatable {
 }
 
 /* ------------------------------------------------------------------ */
+/* Terrain relief — ONE formula shared by the ground mesh, the player's */
+/* feet, and every placed object, so nothing ever sinks or floats.     */
+/* (Plane local +y maps to world −z after rotation, but cos() is even,  */
+/* so local and world coordinates give identical heights.) Pure.        */
+/* ------------------------------------------------------------------ */
+
+/** Smooth dune relief, roughly ±2.0 units. Pure. */
+export function terrainRelief(x: number, z: number): number {
+  return Math.sin(x * 0.15) * Math.cos(z * 0.13) * 1.2 + Math.sin(x * 0.05 + 2) * 0.8;
+}
+
+/** City tales want near-flat avenues; wild tales keep their dunes. Pure. */
+export function terrainAmp(theme: string): number {
+  if (theme === "cyberpunk") return 0.3;
+  if (theme === "ancient_ruins") return 0.5;
+  return 0.7;
+}
+
+/** Ground surface height at a world position. Pure. */
+export function groundHeightAt(x: number, z: number, theme: string): number {
+  return terrainRelief(x, z) * terrainAmp(theme);
+}
+
+/* ------------------------------------------------------------------ */
 /* Interact trigger: any UI path (E / click / button / voice) fires    */
 /* `triggerObject(id)`; LumenScene listens and plays a pop + shockwave  */
 /* ring + light flash on that object so the hit reads instantly.        */
@@ -514,12 +538,15 @@ export class Astronaut implements Updatable {
     this.torso.position.y = 1.2;
     const chestLamp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.05), new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
     chestLamp.position.set(0.1, 1.32, 0.24);
-    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.24), dark);
-    pack.position.set(0, 1.25, -0.3);
+    // slim high pack in suit colors — reads as a backpack, never a black slab
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.36, 0.16), suit);
+    pack.position.set(0, 1.34, -0.27);
     pack.castShadow = true;
+    const packTrim = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.17), accent);
+    packTrim.position.set(0, 1.44, -0.27);
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.07, 0.5), accent);
     stripe.position.y = 1.02;
-    this.group.add(this.torso, chestLamp, pack, stripe);
+    this.group.add(this.torso, chestLamp, pack, packTrim, stripe);
 
     for (const [pivot, x] of [[this.armL, -0.34], [this.armR, 0.34]] as const) {
       const arm = limb(0.07, 0.42, suit);
@@ -573,6 +600,145 @@ export class Astronaut implements Updatable {
     this.group.position.y += 0; // base position owned by scene
     this.torso.position.y = 1.2 + (this.state.moving ? Math.abs(Math.cos(this.phase)) * 0.05 : Math.sin(t * 1.6) * 0.012);
     this.helmet.rotation.x = this.state.moving ? 0.06 : Math.sin(t * 0.8) * 0.04;
+  }
+
+  dispose(): void {
+    this.group.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.geometry.dispose();
+        const m = mesh.material as THREE.Material | THREE.Material[];
+        if (Array.isArray(m)) m.forEach((x) => x.dispose());
+        else m.dispose();
+      }
+    });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Chibi: the Facet avatar look, rebuilt for the plain-three engine —   */
+/* oversized head, hair cap, smiling face. Same Updatable contract as    */
+/* Astronaut (group + state + update + dispose) so the scene swaps them  */
+/* freely for the picked body type.                                      */
+/* ------------------------------------------------------------------ */
+export class Chibi implements Updatable {
+  readonly group = new THREE.Group();
+  readonly state: AstroState = { moving: false, waving: false };
+  private legL = new THREE.Group();
+  private legR = new THREE.Group();
+  private armL = new THREE.Group();
+  private armR = new THREE.Group();
+  private head = new THREE.Group();
+  private eyeL = new THREE.Mesh();
+  private eyeR = new THREE.Mesh();
+  private bodyM = new THREE.Mesh();
+  private phase = 0;
+  private blinkAt = 2.2;
+  private blinkStart = -10;
+
+  constructor(suitColor = 0xea580c, accentColor = 0x22d3ee, skinColor = 0xf2c89b) {
+    const suit = new THREE.MeshStandardMaterial({ color: suitColor, roughness: 0.55 });
+    const hair = new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.6 });
+    const skin = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.55 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x1c1c20, roughness: 0.35 });
+    const shoe = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.5 });
+
+    const limb = (r: number, len: number, mat: THREE.Material): THREE.Mesh => {
+      const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), mat);
+      m.castShadow = true;
+      return m;
+    };
+
+    // stubby legs + sneakers
+    for (const [pivot, x] of [[this.legL, -0.11], [this.legR, 0.11]] as const) {
+      const leg = limb(0.075, 0.22, suit);
+      leg.position.y = -0.18;
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.26), shoe);
+      foot.position.set(0, -0.36, 0.04);
+      foot.castShadow = true;
+      pivot.add(leg, foot);
+      pivot.position.set(x, 0.46, 0);
+      this.group.add(pivot);
+    }
+
+    // round torso in suit colors
+    this.bodyM = limb(0.26, 0.22, suit);
+    this.bodyM.position.y = 0.72;
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.07, 0.44), hair);
+    belt.position.y = 0.56;
+    this.group.add(this.bodyM, belt);
+
+    // short arms, skin mitten hands
+    for (const [pivot, x] of [[this.armL, -0.3], [this.armR, 0.3]] as const) {
+      const arm = limb(0.06, 0.2, suit);
+      arm.position.y = -0.14;
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), skin);
+      hand.position.y = -0.3;
+      hand.castShadow = true;
+      pivot.add(arm, hand);
+      pivot.position.set(x, 0.86, 0);
+      pivot.rotation.z = x > 0 ? -0.15 : 0.15;
+      this.group.add(pivot);
+    }
+
+    // oversized head: skin ball + hair cap + face
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.38, 20, 16), skin);
+    skull.castShadow = true;
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.4, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), hair);
+    cap.position.y = 0.04;
+    cap.castShadow = true;
+    this.eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), dark);
+    this.eyeL.position.set(-0.13, 0.02, 0.35);
+    this.eyeR = this.eyeL.clone();
+    this.eyeR.position.x = 0.13;
+    const smile = new THREE.Mesh(
+      new THREE.TorusGeometry(0.09, 0.016, 8, 20, 1.7),
+      new THREE.MeshStandardMaterial({ color: 0x5b3a2e, roughness: 0.5 }),
+    );
+    smile.position.set(0, -0.1, 0.355);
+    smile.rotation.z = -Math.PI / 2 - 0.85;
+    const blushM = new THREE.MeshBasicMaterial({ color: 0xf0a8b0 });
+    for (const sx of [-1, 1]) {
+      const blush = new THREE.Mesh(new THREE.CircleGeometry(0.04, 10), blushM);
+      blush.position.set(sx * 0.23, -0.06, 0.3);
+      blush.rotation.y = sx * 0.6;
+      this.head.add(blush);
+    }
+    this.head.add(skull, cap, this.eyeL, this.eyeR, smile);
+    this.head.position.y = 1.32;
+    this.group.add(this.head);
+    this.group.traverse((o) => { o.frustumCulled = false; });
+  }
+
+  update(t: number, dt: number): void {
+    const speed = this.state.moving ? 8 : 1.6;
+    this.phase += dt * speed;
+    const swing = this.state.moving ? 0.7 : 0.05;
+    const s = Math.sin(this.phase);
+    this.legL.rotation.x = s * swing;
+    this.legR.rotation.x = -s * swing;
+    if (this.state.waving) {
+      this.armR.rotation.z = -2.3 + Math.sin(t * 9) * 0.35;
+      this.armR.rotation.x = 0;
+      this.armL.rotation.x = -s * 0.1;
+    } else {
+      this.armL.rotation.x = -s * swing * 0.8;
+      this.armR.rotation.x = s * swing * 0.8;
+      this.armL.rotation.z = 0.15;
+      this.armR.rotation.z = -0.15;
+    }
+    // idle bob + blink
+    this.group.position.y += 0; // base position owned by scene
+    this.bodyM.position.y = 0.72 + (this.state.moving ? Math.abs(Math.cos(this.phase)) * 0.04 : Math.sin(t * 1.8) * 0.012);
+    this.head.rotation.y = this.state.moving ? Math.sin(this.phase * 0.25) * 0.12 : Math.sin(t * 0.5) * 0.4;
+    if (t >= this.blinkAt) {
+      this.blinkStart = t;
+      this.blinkAt = t + 2.5 + Math.random() * 1.5;
+    }
+    const bp = (t - this.blinkStart) / 0.12;
+    const eyeY = bp >= 0 && bp <= 1 ? 1 - 0.9 * Math.sin(Math.PI * bp) : 1;
+    this.eyeL.scale.y = eyeY;
+    this.eyeR.scale.y = eyeY;
   }
 
   dispose(): void {

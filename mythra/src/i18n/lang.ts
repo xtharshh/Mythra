@@ -28,11 +28,16 @@ interface Dict {
 
 const EN: Dict = {
   chrome: {
-    "nav.dossier": "Dossier",
-    "nav.archive": "Archive",
-    "nav.surface": "Surface",
-    "nav.planner": "Planner",
-    "nav.control": "Control",
+    "nav.dossier": "Home",
+    "nav.archive": "Stories",
+    "nav.surface": "Play",
+    "nav.planner": "Create",
+    "nav.control": "Studio",
+    "nav.what.dossier": "Home — start here",
+    "nav.what.archive": "Browse and join every story",
+    "nav.what.surface": "Play inside the 3D world",
+    "nav.what.planner": "Make a new story with AI",
+    "nav.what.control": "Manage your stories and reviews",
     "nav.signin": "Sign in",
     "nav.online": "Online",
     "nav.offline": "Offline",
@@ -100,11 +105,11 @@ const EN: Dict = {
 
 const HI: Dict = {
   chrome: {
-    "nav.dossier": "डोज़ियर",
-    "nav.archive": "अभिलेख",
-    "nav.surface": "सतह",
-    "nav.planner": "योजनाकार",
-    "nav.control": "नियंत्रण",
+    "nav.dossier": "होम",
+    "nav.archive": "कहानियाँ",
+    "nav.surface": "खेलें",
+    "nav.planner": "बनाएँ",
+    "nav.control": "स्टूडियो",
     "nav.signin": "साइन इन",
     "nav.online": "ऑनलाइन",
     "nav.offline": "ऑफलाइन",
@@ -172,11 +177,16 @@ const HI: Dict = {
 
 const ES: Dict = {
   chrome: {
-    "nav.dossier": "Dosier",
-    "nav.archive": "Archivo",
-    "nav.surface": "Superficie",
-    "nav.planner": "Planificador",
-    "nav.control": "Control",
+    "nav.dossier": "Inicio",
+    "nav.archive": "Historias",
+    "nav.surface": "Jugar",
+    "nav.planner": "Crear",
+    "nav.control": "Estudio",
+    "nav.what.dossier": "Home — start here",
+    "nav.what.archive": "Browse and join every story",
+    "nav.what.surface": "Play inside the 3D world",
+    "nav.what.planner": "Make a new story with AI",
+    "nav.what.control": "Manage your stories and reviews",
     "nav.signin": "Entrar",
     "nav.online": "En línea",
     "nav.offline": "Sin conexión",
@@ -244,11 +254,11 @@ const ES: Dict = {
 
 const FR: Dict = {
   chrome: {
-    "nav.dossier": "Dossier",
-    "nav.archive": "Archives",
-    "nav.surface": "Surface",
-    "nav.planner": "Planificateur",
-    "nav.control": "Contrôle",
+    "nav.dossier": "Accueil",
+    "nav.archive": "Histoires",
+    "nav.surface": "Jouer",
+    "nav.planner": "Créer",
+    "nav.control": "Studio",
     "nav.signin": "Connexion",
     "nav.online": "En ligne",
     "nav.offline": "Hors ligne",
@@ -316,11 +326,11 @@ const FR: Dict = {
 
 const DE: Dict = {
   chrome: {
-    "nav.dossier": "Dossier",
-    "nav.archive": "Archiv",
-    "nav.surface": "Oberfläche",
-    "nav.planner": "Planer",
-    "nav.control": "Kontrolle",
+    "nav.dossier": "Start",
+    "nav.archive": "Geschichten",
+    "nav.surface": "Spielen",
+    "nav.planner": "Erstellen",
+    "nav.control": "Studio",
     "nav.signin": "Anmelden",
     "nav.online": "Online",
     "nav.offline": "Offline",
@@ -388,11 +398,11 @@ const DE: Dict = {
 
 const PT: Dict = {
   chrome: {
-    "nav.dossier": "Dossiê",
-    "nav.archive": "Arquivo",
-    "nav.surface": "Superfície",
-    "nav.planner": "Planejador",
-    "nav.control": "Controle",
+    "nav.dossier": "Início",
+    "nav.archive": "Histórias",
+    "nav.surface": "Jogar",
+    "nav.planner": "Criar",
+    "nav.control": "Estúdio",
     "nav.signin": "Entrar",
     "nav.online": "On-line",
     "nav.offline": "Off-line",
@@ -513,3 +523,4 @@ export function useLang(): { lang: LangId; setLang: (l: LangId) => void } {
     },
   };
 }
+

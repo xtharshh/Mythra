@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img" aria-label="Mockup of the Planner create page">
+  <rect width="800" height="500" fill="#0e1a08"/>
+  <rect x="60" y="30" width="330" height="40" rx="6" fill="#f5ecdd"/>
+  <rect x="400" y="30" width="140" height="40" rx="6" fill="#9ae66e"/>
+  <rect x="60" y="90" width="680" height="380" rx="10" fill="#140905" stroke="#c97b2e" stroke-width="2"/>
+  <rect x="90" y="120" width="300" height="14" rx="3" fill="#f5ecdd"/>
+  <rect x="90" y="145" width="620" height="44" rx="6" fill="none" stroke="#8a6a4a" stroke-width="2"/>
+  <rect x="90" y="205" width="160" height="14" rx="3" fill="#f5ecdd"/>
+  <rect x="90" y="230" width="620" height="80" rx="6" fill="none" stroke="#8a6a4a" stroke-width="2"/>
+  <rect x="106" y="246" width="420" height="12" rx="3" fill="#c9b896"/>
+  <rect x="90" y="325" width="140" height="14" rx="3" fill="#f5ecdd"/><rect x="300" y="325" width="120" height="14" rx="3" fill="#f5ecdd"/>
+  <rect x="90" y="350" width="180" height="44" rx="6" fill="none" stroke="#8a6a4a" stroke-width="2"/><rect x="300" y="350" width="180" height="44" rx="6" fill="none" stroke="#8a6a4a" stroke-width="2"/>
+  <rect x="90" y="410" width="170" height="40" rx="8" fill="#9ae66e"/><rect x="270" y="410" width="200" height="40" rx="8" fill="none" stroke="#ffb45e" stroke-width="2"/>
+</svg>

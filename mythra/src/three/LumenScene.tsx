@@ -7,6 +7,7 @@ import type { World, WorldObject } from "../types";
 import {
   Astronaut,
   Blinkers,
+  Chibi,
   DustStorm,
   Fire,
   Flag,
@@ -18,11 +19,13 @@ import {
   TRIGGER_POP_SEC,
   WindRush,
   createSky,
+  groundHeightAt,
   scatterCraters,
   scatterRocks,
   triggerScale,
 } from "./effects";
 import type { Updatable } from "./effects";
+import type { AvatarBody } from "../game/suits";
 import { createObjectMesh } from "./factory";
 import type { TickFn } from "./factory";
 import { BINDS_EVENT } from "../components/Controls";
@@ -34,6 +37,7 @@ export interface PeerPresence {
   pos: [number, number, number];
   suit: number;
   accent: number;
+  body: AvatarBody;
 }
 
 interface Props {
@@ -46,7 +50,7 @@ interface Props {
   onToggleFlyRequest: () => void;
   onTargetChange?: (obj: WorldObject | null) => void;
   peers?: PeerPresence[];
-  character: { suit: number; accent: number };
+  character: { suit: number; accent: number; body: AvatarBody };
   view: ViewMode;
   onToggleViewRequest: () => void;
   /** Canonical player position (store). The scene snaps to it when it jumps
@@ -56,7 +60,6 @@ interface Props {
 }
 
 const GROUND_Y = 1.7;
-const FLY_MIN = 1.2;
 const FLY_MAX = 45;
 const JUMP_V = 5.6;
 const GRAVITY = 13.5;
@@ -224,18 +227,15 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     rim.position.set(40, 20, -35);
     scene.add(rim);
 
-    // --- terrain with relief
+    // --- terrain with relief (same formula the feet and objects use)
     const terrain = new THREE.Mesh(
       new THREE.PlaneGeometry(240, 240, 56, 56),
       new THREE.MeshStandardMaterial({ color: new THREE.Color(W.environment.primaryColor), roughness: 1 })
     );
     terrain.rotation.x = -Math.PI / 2;
     const tp = terrain.geometry.attributes.position as THREE.BufferAttribute;
-    let seed = W.environment.terrainSeed;
-    const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     for (let i = 0; i < tp.count; i++) {
-      const x = tp.getX(i), y = tp.getY(i);
-      tp.setZ(i, Math.sin(x * 0.15) * Math.cos(y * 0.13) * 1.2 + Math.sin(x * 0.05 + 2) * 0.8 + rand() * 0.35);
+      tp.setZ(i, groundHeightAt(tp.getX(i), tp.getY(i), W.theme));
     }
     terrain.geometry.computeVertexNormals();
     terrain.receiveShadow = true;
@@ -265,20 +265,24 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       group.clear();
       meshes.clear();
       tickers.length = 0;
+      const liftAt = (x: number, z: number): number => groundHeightAt(x, z, W.theme);
       for (const o of W.objects) {
         const mesh = createObjectMesh(o);
+        // sit the model ON the terrain instead of inside it
+        mesh.position.y += Math.max(0, liftAt(mesh.position.x, mesh.position.z));
         group.add(mesh);
         meshes.set(o.id, mesh);
         const tick = (mesh.userData as { tick?: TickFn }).tick;
         if (tick) tickers.push(tick);
         const meta = o.metadata as { float?: boolean; spin?: boolean } | undefined;
-        if (meta?.float) floaters.push({ mesh, baseY: o.position[1], phase: Math.random() * Math.PI * 2 });
+        if (meta?.float) floaters.push({ mesh, baseY: mesh.position.y, phase: Math.random() * Math.PI * 2 });
         if (meta?.spin) spinners.push({ mesh, speed: 0.4 + Math.random() * 0.4 });
       }
       for (const l of W.locations) {
+        const h = Math.max(0, liftAt(l.position[0], l.position[2]));
         const mat = new THREE.MeshBasicMaterial({ color: l.locked ? 0xef4444 : 0x22d3ee, transparent: true, opacity: 0.5 });
         const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 6, 8), mat);
-        beacon.position.set(l.position[0], 3, l.position[2]);
+        beacon.position.set(l.position[0], 3 + h, l.position[2]);
         group.add(beacon);
         beaconMats.push(mat);
         const ring = new THREE.Mesh(
@@ -286,7 +290,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
           new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
         );
         ring.rotation.x = -Math.PI / 2;
-        ring.position.set(l.position[0], 0.05, l.position[2]);
+        ring.position.set(l.position[0], 0.05 + h, l.position[2]);
         group.add(ring);
       }
     };
@@ -402,26 +406,28 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
 
     // --- mission flag rippling at the landing zone
     const flag = new Flag(0xea580c);
-    flag.group.position.set(-3, 0, -3);
+    flag.group.position.set(-3, groundHeightAt(-3, -3, W.theme), -3);
     scene.add(flag.group);
     effects.push(flag);
 
-    // --- you: third-person astronaut in your picked suit, always visible
-    let me: Astronaut | null = null;
+    // --- you: third-person explorer in your picked body + suit, always visible
+    let me: Astronaut | Chibi | null = null;
     let meSuit = -1;
     let meAccent = -1;
+    let meBody: AvatarBody | "" = "";
     const dressMe = () => {
       const c = characterRef.current;
-      if (me && meSuit === c.suit && meAccent === c.accent) return;
+      if (me && meSuit === c.suit && meAccent === c.accent && meBody === c.body) return;
       if (me) {
         scene.remove(me.group);
         const idx = effects.indexOf(me);
         if (idx >= 0) effects.splice(idx, 1);
         me.dispose();
       }
-      me = new Astronaut(c.suit, c.accent);
+      me = c.body === "chibi" ? new Chibi(c.suit, c.accent) : new Astronaut(c.suit, c.accent);
       meSuit = c.suit;
       meAccent = c.accent;
+      meBody = c.body;
       scene.add(me.group);
       effects.push(me);
     };
@@ -432,7 +438,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
     scene.add(astro.group);
     effects.push(astro);
     // remote explorers (multiplayer presence), keyed by username
-    const peerMap = new Map<string, { astro: Astronaut; tag: THREE.Mesh; lastSeen: number; prevX: number; prevZ: number }>();
+    const peerMap = new Map<string, { astro: Astronaut | Chibi; tag: THREE.Mesh; lastSeen: number; prevX: number; prevZ: number; body: AvatarBody }>();
     const patrol: [number, number][] = [[2, 4], [9, -3], [15, 3], [18, 7], [10, 11], [1, 9]];
     let wpIdx = 1;
 
@@ -539,31 +545,34 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
         const b = bounds();
         st.pos.x = Math.max(-b, Math.min(b, st.pos.x));
         st.pos.z = Math.max(-b, Math.min(b, st.pos.z));
-        st.pos.y = flying ? Math.max(FLY_MIN, Math.min(FLY_MAX, st.pos.y)) : st.pos.y;
+        // feet ride the terrain: eye height above the local ground surface
+        const floorNow = groundHeightAt(st.pos.x, st.pos.z, worldRef.current.theme) + GROUND_Y;
+        st.pos.y = flying ? Math.max(floorNow + 0.3, Math.min(FLY_MAX, st.pos.y)) : st.pos.y;
         callbacks.current.onPositionChange([st.pos.x, st.pos.y, st.pos.z]);
       }
+      const floorY = groundHeightAt(st.pos.x, st.pos.z, worldRef.current.theme) + GROUND_Y;
       if (!flying) {
         if (st.grounded) {
-          if (st.pos.y > GROUND_Y) {
+          if (st.pos.y > floorY + 0.05) {
             // suit just cut out mid-air (or a shove): fall, don't snap
             st.grounded = false;
             st.vy = 0;
-          } else if (st.pos.y < GROUND_Y) {
-            st.pos.y = GROUND_Y;
+          } else {
+            st.pos.y = floorY;
           }
         }
         if (!st.grounded) {
           st.vy -= GRAVITY * dt;
           st.pos.y += st.vy * dt;
-          if (st.pos.y <= GROUND_Y) {
-            st.pos.y = GROUND_Y;
+          if (st.pos.y <= floorY) {
+            st.pos.y = floorY;
             st.vy = 0;
             st.grounded = true;
           }
           callbacks.current.onPositionChange([st.pos.x, st.pos.y, st.pos.z]);
         }
       } else {
-        st.grounded = st.pos.y <= GROUND_Y + 0.01;
+        st.grounded = st.pos.y <= floorY + 0.01;
         if (st.grounded) st.vy = 0;
       }
       // restore / load teleports the canonical position — snap to it
@@ -576,7 +585,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
         ) {
           st.pos.set(hp[0], hp[1], hp[2]);
           st.vy = 0;
-          st.grounded = hp[1] <= GROUND_Y + 0.01;
+          st.grounded = hp[1] <= groundHeightAt(hp[0], hp[2], worldRef.current.theme) + GROUND_Y + 0.01;
           snappedCam = false;
           callbacks.current.onPositionChange([st.pos.x, st.pos.y, st.pos.z]);
         }
@@ -662,9 +671,10 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
         if (flash.intensity > 0) flash.intensity = Math.max(0, flash.intensity - dt * 90);
       }
 
-      // --- astronaut patrol + greet
+      // --- astronaut patrol + greet (feet on the terrain like everyone)
       {
         const ap = astro.group.position;
+        ap.y = groundHeightAt(ap.x, ap.z, worldRef.current.theme);
         const pdx = st.pos.x - ap.x, pdz = st.pos.z - ap.z;
         if (Math.hypot(pdx, pdz) < 5) {
           astro.state.waving = true;
@@ -692,14 +702,23 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
         const nowMs = performance.now();
         for (const p of peersRef.current.slice(0, 12)) {
           let rec = peerMap.get(p.user);
+          if (rec && rec.body !== p.body) {
+            // peer swapped bodies — rebuild their explorer
+            scene.remove(rec.astro.group);
+            const idx = effects.indexOf(rec.astro);
+            if (idx >= 0) effects.splice(idx, 1);
+            rec.astro.dispose();
+            peerMap.delete(p.user);
+            rec = undefined;
+          }
           if (!rec) {
-            const astro = new Astronaut(p.suit, p.accent);
+            const astro = p.body === "chibi" ? new Chibi(p.suit, p.accent) : new Astronaut(p.suit, p.accent);
             const tag = makeNameTag(p.user);
             astro.group.add(tag);
-            astro.group.position.set(p.pos[0], 0, p.pos[2]);
+            astro.group.position.set(p.pos[0], groundHeightAt(p.pos[0], p.pos[2], worldRef.current.theme), p.pos[2]);
             scene.add(astro.group);
             effects.push(astro);
-            rec = { astro, tag, lastSeen: nowMs, prevX: p.pos[0], prevZ: p.pos[2] };
+            rec = { astro, tag, lastSeen: nowMs, prevX: p.pos[0], prevZ: p.pos[2], body: p.body };
             peerMap.set(p.user, rec);
           }
           rec.lastSeen = nowMs;
@@ -710,6 +729,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
             const step = Math.min(dist, 3.2 * dt);
             rec.astro.group.position.x += (dx / dist) * step;
             rec.astro.group.position.z += (dz / dist) * step;
+            rec.astro.group.position.y = groundHeightAt(rec.astro.group.position.x, rec.astro.group.position.z, worldRef.current.theme);
             rec.astro.state.moving = true;
             turnTo(rec.astro.group, Math.atan2(dx, dz), dt);
           } else {
@@ -788,7 +808,7 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
 
       if (flightRef.current) {
         flightRef.current.style.display = flags.current.hasSuit ? "block" : "none";
-        if (altRef.current) altRef.current.textContent = flying ? `${st.pos.y.toFixed(0)}m · FLYING` : st.pos.y > GROUND_Y + 0.2 ? `${st.pos.y.toFixed(0)}m · descending` : "grounded";
+        if (altRef.current) altRef.current.textContent = flying ? `${st.pos.y.toFixed(0)}m · FLYING` : !st.grounded ? `${st.pos.y.toFixed(0)}m · descending` : "grounded";
       }
 
       // location check (throttled)

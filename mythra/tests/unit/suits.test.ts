@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHARACTERS, decodeSuit, encodeSuit, hashUser, loadCharacter, suitForUser } from "../../src/game/suits";
+import { CHARACTERS, DEFAULT_AVATAR, decodeSuit, encodeSuit, hashUser, loadAvatar, loadCharacter, saveAvatar, suitForUser } from "../../src/game/suits";
 
 describe("scenario suits", () => {
   it("is stable per explorer", () => {
@@ -22,8 +22,21 @@ describe("scenario suits", () => {
 
   it("round-trips picked suits over presence, falls back cleanly", () => {
     const code = encodeSuit(0xea580c, 0x22d3ee);
-    expect(decodeSuit(code, "x", "mars")).toEqual({ suit: 0xea580c, accent: 0x22d3ee });
+    expect(decodeSuit(code, "x", "mars")).toEqual({ suit: 0xea580c, accent: 0x22d3ee, body: "astronaut" });
     const fb = suitForUser("x", "mars");
-    expect(decodeSuit("garbage", "x", "mars")).toEqual({ suit: fb.suit, accent: fb.accent });
+    expect(decodeSuit("garbage", "x", "mars")).toEqual({ suit: fb.suit, accent: fb.accent, body: "astronaut" });
+  });
+
+  it("carries the chibi body over presence, reads legacy codes as astronaut", () => {
+    const code = encodeSuit(0xea580c, 0x22d3ee, "chibi");
+    expect(decodeSuit(code, "x", "mars")).toEqual({ suit: 0xea580c, accent: 0x22d3ee, body: "chibi" });
+    expect(decodeSuit("ea580c:22d3ee", "x", "mars").body).toBe("astronaut");
+  });
+
+  it("loads a valid default avatar look headless, ignores bad saves", () => {
+    expect(loadAvatar()).toEqual(DEFAULT_AVATAR);
+    // headless: no localStorage → save is a safe no-op, load stays default
+    saveAvatar({ ...DEFAULT_AVATAR, hairStyle: "spiky" });
+    expect(loadAvatar()).toEqual(DEFAULT_AVATAR);
   });
 });

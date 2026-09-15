@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROVIDERS, buildChapterPrompt, buildWorldPrompt, endpointFor, normalizeThemeId, parseChapterDraft, repairWorldShape } from "../../src/ai/providers";
+import { PROVIDERS, buildChapterPrompt, buildWorldPrompt, endpointFor, normalizeEnvironmentForTheme, normalizeThemeId, parseChapterDraft, repairWorldShape, retargetRoadTheme } from "../../src/ai/providers";
 import type { WorldGenerationInput } from "../../src/types";
 
 const input: WorldGenerationInput = {
@@ -66,6 +66,88 @@ describe("universal AI providers", () => {
     expect(o.type).toBe("building");
     expect(o.modelId).toBeUndefined();
     expect((o.interaction as Record<string, unknown>).kind).toBe("inspect");
+  });
+
+  it("deep-repairs small-model conditions: aliases, renamed fields, nested junk", () => {
+    const raw = {
+      missions: [{
+        // what gpt-oss on Groq/NIM actually ships: paraphrased types,
+        // `item` for `itemId`, missing quantity, junk nested in `all`
+        prerequisites: ["m1", { type: "mission_complete", mission: "m0" }],
+        startCondition: { type: "all" },
+        completionCondition: {
+          type: "all",
+          conditions: [
+            { type: "collect_item", item: "fuel", count: "3" },
+            { type: "item_owned", itemId: "metal" },
+            "just a string",
+            { type: "mission_completed" },
+          ],
+        },
+        failureCondition: { nope: true },
+      }],
+      endings: [{ condition: { type: "visit", place: "loc_x" } }],
+      locations: [{ unlockCondition: 42 }],
+    };
+    repairWorldShape(raw);
+    const m = (raw.missions as Array<Record<string, unknown>>)[0];
+    expect(m.prerequisites).toEqual([{ type: "mission_completed", missionId: "m0" }]);
+    expect(m.startCondition).toEqual({ type: "all", conditions: [] });
+    expect(m.completionCondition).toEqual({
+      type: "all",
+      conditions: [
+        { type: "item_owned", itemId: "fuel", quantity: 3 },
+        { type: "item_owned", itemId: "metal", quantity: 1 },
+      ],
+    });
+    expect(m.failureCondition).toBeUndefined();
+    expect((raw.endings as Array<Record<string, unknown>>)[0].condition)
+      .toEqual({ type: "location_reached", locationId: "loc_x" });
+    expect((raw.locations as Array<Record<string, unknown>>)[0].unlockCondition).toBeUndefined();
+  });
+
+  it("snaps near-aligned road slabs into one avenue, leaves grids alone", () => {
+    const road = (x: number, z: number) => ({
+      id: `r${x}x${z}`, type: "landmark", modelId: "road", name: "Road",
+      description: "", locationId: "loc_landing", position: [x, 0, z] as [number, number, number],
+      rotation: [0, 0, 0] as [number, number, number], scale: [1, 1, 1] as [number, number, number],
+      visibility: "visible" as const,
+    });
+    const nearMiss = { objects: [road(0.4, -6), road(-0.3, 0), road(0.8, 6)] };
+    repairWorldShape(nearMiss);
+    expect((nearMiss.objects as Array<{ position: number[] }>).map((o) => o.position[0]))
+      .toEqual([0.4, 0.4, 0.4]);
+    const grid = { objects: [road(-8, 0), road(0, 0), road(8, 0)] };
+    repairWorldShape(grid);
+    expect((grid.objects as Array<{ position: number[] }>).map((o) => o.position[0]))
+      .toEqual([-8, 0, 8]);
+  });
+
+  it("paints theme-true palettes and rescues highway tales from Mars", () => {    // road story misfiled as mars → neon cyberpunk streets, never red dust
+    const road = {
+      theme: "mars",
+      name: "Highway Havoc",
+      description: "A road safety tale",
+      story: { premise: "Drive the city highway", background: "traffic", centralConflict: "signals" },
+      environment: { type: "mars", skyColor: "#1a0b2e", fogColor: "#b5533c", primaryColor: "#c1553b", secondaryColor: "#ff6b35" },
+    };
+    retargetRoadTheme(road, "Brief: a road safety story with driving");
+    normalizeEnvironmentForTheme(road);
+    expect(road.theme).toBe("cyberpunk");
+    expect(road.environment.type).toBe("cyberpunk");
+    expect(road.environment.skyColor).toBe("#0b0620");
+    expect(road.environment.primaryColor).toBe("#23262f");
+    // a real Mars colony stays red
+    const mars = {
+      theme: "mars",
+      name: "Silent Mars Colony",
+      story: { premise: "Mars colony lost contact", background: "dust", centralConflict: "sol" },
+      environment: { type: "mars", skyColor: "#1a0b2e", fogColor: "#b5533c", primaryColor: "#c1553b", secondaryColor: "#ff6b35" },
+    };
+    retargetRoadTheme(mars, "Brief: abandoned Mars colony");
+    normalizeEnvironmentForTheme(mars);
+    expect(mars.theme).toBe("mars");
+    expect(mars.environment.primaryColor).toBe("#c1553b");
   });
 
   it("briefs chapter drafts with tale context + strict shape", () => {

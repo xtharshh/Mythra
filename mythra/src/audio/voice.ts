@@ -16,8 +16,8 @@ const LS_KEY = "lumen-voice-v1";
 const DEFAULTS: VoiceSettings = {
   enabled: isTtsSupported(),
   autoNarrate: true,
-  rate: 1,
-  pitch: 0.9,
+  rate: 0.95,
+  pitch: 0.5,
   voiceURI: null,
 };
 
@@ -60,9 +60,10 @@ function pickVoice(uri: string | null): SpeechSynthesisVoice | null {
     const found = voices.find((v) => v.voiceURI === uri);
     if (found) return found;
   }
-  // prefer an English voice so mission radio sounds right out of the box
+  // prefer a male English voice for manly narration
   return (
-    voices.find((v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female")) ??
+    voices.find((v) => v.lang.startsWith("en") && (v.name.toLowerCase().includes("male") || v.name.toLowerCase().includes("david") || v.name.toLowerCase().includes("mark") || v.name.toLowerCase().includes("rich") || v.name.toLowerCase().includes("george"))) ??
+    voices.find((v) => v.lang.startsWith("en") && !v.name.toLowerCase().includes("female") && !v.name.toLowerCase().includes("samantha") && !v.name.toLowerCase().includes("karen") && !v.name.toLowerCase().includes("moira") && !v.name.toLowerCase().includes("tessa") && !v.name.toLowerCase().includes("veena")) ??
     voices.find((v) => v.lang.startsWith("en")) ??
     voices[0]
   );
