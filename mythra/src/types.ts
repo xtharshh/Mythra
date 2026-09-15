@@ -1,4 +1,4 @@
-// LUMEN shared types — derived from LUMEN_Full_Game_Documentation.md §§7–11, 18–19
+// MYTHIO shared types — derived from MYTHIO_Full_Game_Documentation.md §§7–11, 18–19
 export type WorldStatus = "draft" | "testing" | "published" | "archived";
 export type WorldVisibility = "public" | "unlisted" | "private";
 export type Difficulty = "beginner" | "easy" | "medium" | "hard" | "expert";

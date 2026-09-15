@@ -51,6 +51,8 @@ interface Props {
   onTargetChange?: (obj: WorldObject | null) => void;
   peers?: PeerPresence[];
   character: { suit: number; accent: number; body: AvatarBody };
+  /** Object ids already picked up — hidden from the scene (one pickup each). */
+  hiddenObjectIds?: string[];
   view: ViewMode;
   onToggleViewRequest: () => void;
   /** Canonical player position (store). The scene snaps to it when it jumps
@@ -134,7 +136,7 @@ function makeNameTag(name: string): THREE.Mesh {
   return m;
 }
 
-export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character, view, onToggleViewRequest, home }: Props) {
+export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, peers, character, view, onToggleViewRequest, home, hiddenObjectIds }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({
     keys: new Set<string>(),
@@ -161,6 +163,9 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
   callbacks.current = { onInteractRequest, onReachLocation, onPositionChange, onToggleFlyRequest, onTargetChange, onToggleViewRequest };
   const flags = useRef({ flyMode, hasSuit });
   flags.current = { flyMode, hasSuit };
+  const hiddenRef = useRef<string[]>(hiddenObjectIds ?? []);
+  hiddenRef.current = hiddenObjectIds ?? [];
+  const meshesRef = useRef<Map<string, THREE.Object3D> | null>(null);
   const worldRef = useRef(world);
   worldRef.current = world;
 
@@ -295,6 +300,12 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       }
     };
     rebuild();
+    meshesRef.current = meshes;
+    // picked-up objects stay vanished (collect = one pickup each)
+    {
+      const hidden = new Set(hiddenRef.current);
+      for (const [id, mesh] of meshes) mesh.visible = !hidden.has(id);
+    }
 
     // --- interact trigger FX: scale pop + shockwave ring + light flash,
     // --- so the exact object you hit visibly answers back.
@@ -859,6 +870,14 @@ export default function LumenScene({ world, flyMode, hasSuit, onInteractRequest,
       mount.removeChild(renderer.domElement);
     };
   }, []);
+
+  // picked-up objects vanish without rebuilding the scene
+  useEffect(() => {
+    const map = meshesRef.current;
+    if (!map) return;
+    const hidden = new Set(hiddenObjectIds ?? []);
+    for (const [id, mesh] of map) mesh.visible = !hidden.has(id);
+  }, [hiddenObjectIds, world.id]);
 
   return (
     <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative", cursor: "crosshair" }}>

@@ -1,6 +1,7 @@
 import { Component, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import Admin from "./pages/Admin";
 import Create from "./pages/Create";
 import Explore from "./pages/Explore";
 import Landing from "./pages/Landing";
@@ -172,6 +173,7 @@ function AppContent() {
         <Route path="/explore" element={<Explore />} />
         <Route path="/play" element={<Play />} />
         <Route path="/create" element={<Create />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="/studio" element={<Studio />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
@@ -184,6 +186,7 @@ function AppContent() {
         <span style={{ flex: 1 }} />
         <Link to="/terms">Terms</Link>
         <Link to="/privacy">Privacy</Link>
+        <Link to="/admin">Admin</Link>
         <a href="https://buymeacoffee.com/xtharshh" target="_blank" rel="noreferrer">Support</a>
         <a href="https://instagram.com/xt.harshh" target="_blank" rel="noreferrer" title="xtharshh on Instagram">@xt.harshh</a>
         <span className="muted">© 2026 xtharshh</span>

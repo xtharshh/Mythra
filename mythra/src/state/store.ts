@@ -1,6 +1,6 @@
 // Zustand game store — local single-player state with localStorage persistence (§4.4, §3.1)
 import { create } from "zustand";
-import { healWorldTheme } from "../ai/providers";
+import { healCollectGrants, healWorldTheme } from "../ai/providers";
 import { applyContribution, snapshotVersion } from "../community/continuity";
 import { ownerKey, saveOwner } from "../auth/auth";
 import { api, apiOn, apiToken } from "../api/client";
@@ -17,6 +17,7 @@ export interface ProgressSnapshot {
   activeMissions: string[];
   solvedPuzzles: string[];
   inspectedObjects: string[];
+  collectedObjects: string[];
   reachedLocations: string[];
   flags: Record<string, string | number | boolean>;
   notes: Record<string, string>;
@@ -34,6 +35,7 @@ interface LumenStore {
   activeMissions: string[];
   solvedPuzzles: string[];
   inspectedObjects: string[];
+  collectedObjects: string[];
   reachedLocations: string[];
   flags: Record<string, string | number | boolean>;
   notes: Record<string, string>;
@@ -52,6 +54,8 @@ interface LumenStore {
   rollbackToVersion: (versionNumber: number) => void;
   collect: (itemId: string, qty?: number) => void;
   inspectObject: (id: string) => void;
+  /** Mark a picked-up object depleted so it vanishes from the scene. */
+  collectObject: (id: string) => void;
   discoverClue: (id: string) => void;
   startMission: (id: string) => void;
   completeMission: (id: string, rewards?: { itemId?: string; quantity?: number }[]) => void;
@@ -104,7 +108,7 @@ const LAST_KEY = "lumen-last-world";
 function freshRun(): ProgressSnapshot {
   return {
     inventory: {}, discoveredClues: [], completedMissions: [], activeMissions: [],
-    solvedPuzzles: [], inspectedObjects: [], reachedLocations: ["loc_landing"],
+    solvedPuzzles: [], inspectedObjects: [], collectedObjects: [], reachedLocations: ["loc_landing"],
     flags: {}, notes: {}, playerPos: [0, 1.7, 6],
   };
 }
@@ -188,6 +192,7 @@ function snapshot(s: LumenStore): ProgressSnapshot {
   return {
     inventory: s.inventory, discoveredClues: s.discoveredClues, completedMissions: s.completedMissions,
     activeMissions: s.activeMissions, solvedPuzzles: s.solvedPuzzles, inspectedObjects: s.inspectedObjects,
+    collectedObjects: s.collectedObjects,
     reachedLocations: s.reachedLocations, flags: s.flags, notes: s.notes, playerPos: s.playerPos,
   };
 }
@@ -206,6 +211,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
   activeMissions: [],
   solvedPuzzles: [],
   inspectedObjects: [],
+  collectedObjects: [],
   reachedLocations: ["loc_landing"],
   flags: {},
   notes: {},
@@ -217,8 +223,14 @@ export const useLumen = create<LumenStore>((set, get) => ({
   log: ["Welcome to Mythio."],
 
   setWorld: (world) => {
-    if (world && healWorldTheme(world)) {
-      get().pushLog(`🎨 ${world.name} re-dressed for neon streets — no more red dust.`);
+    if (world) {
+      if (healWorldTheme(world)) {
+        get().pushLog(`🎨 ${world.name} re-dressed for neon streets — no more red dust.`);
+      }
+      const rewired = healCollectGrants(world);
+      if (rewired > 0) {
+        get().pushLog(`🔧 ${world.name}: ${rewired} pickup${rewired === 1 ? "" : "s"} rewired — collecting now works.`);
+      }
     }
     if (world) {
       // the playing tale always lives in the shelf too, so a reload reopens
@@ -235,6 +247,10 @@ export const useLumen = create<LumenStore>((set, get) => ({
   addWorld: (w) => {
     if (healWorldTheme(w)) {
       get().pushLog(`🎨 ${w.name} re-dressed for neon streets — no more red dust.`);
+    }
+    const rewired = healCollectGrants(w);
+    if (rewired > 0) {
+      get().pushLog(`🔧 ${w.name}: ${rewired} pickup${rewired === 1 ? "" : "s"} rewired — collecting now works.`);
     }
     set((s) => ({ worlds: [...s.worlds.filter((x) => x.id !== w.id), w], world: w }));
     try {
@@ -329,6 +345,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
 
   collect: (itemId, qty = 1) => set((s) => ({ inventory: { ...s.inventory, [itemId]: (s.inventory[itemId] ?? 0) + qty } })),
   inspectObject: (id) => set((s) => (s.inspectedObjects.includes(id) ? {} : { inspectedObjects: [...s.inspectedObjects, id] })),
+  collectObject: (id) => set((s) => (s.collectedObjects.includes(id) ? {} : { collectedObjects: [...s.collectedObjects, id] })),
   discoverClue: (id) => set((s) => (s.discoveredClues.includes(id) ? {} : { discoveredClues: [...s.discoveredClues, id] })),
   startMission: (id) => set((s) => ({ activeMissions: s.activeMissions.includes(id) ? s.activeMissions : [...s.activeMissions, id] })),
   completeMission: (id, rewards = []) => set((s) => {
@@ -401,11 +418,11 @@ export const useLumen = create<LumenStore>((set, get) => ({
         return;
       }
       const snap = JSON.parse(raw) as ProgressSnapshot;
-      set({ ...snap, playerPos: snap.playerPos ?? [0, 1.7, 6] });
+      set({ ...snap, collectedObjects: snap.collectedObjects ?? [], playerPos: snap.playerPos ?? [0, 1.7, 6] });
       get().pushLog("Progress restored.");
     } catch { /* ignore */ }
   },
-  reset: () => set({ inventory: {}, discoveredClues: [], completedMissions: [], activeMissions: [], solvedPuzzles: [], inspectedObjects: [], reachedLocations: ["loc_landing"], flags: {}, notes: {}, playerPos: [0, 1.7, 6], log: ["Welcome to Mythio.", "World reset."] }),
+  reset: () => set({ inventory: {}, discoveredClues: [], completedMissions: [], activeMissions: [], solvedPuzzles: [], inspectedObjects: [], collectedObjects: [], reachedLocations: ["loc_landing"], flags: {}, notes: {}, playerPos: [0, 1.7, 6], log: ["Welcome to Mythio.", "World reset."] }),
 
   persistLibrary: () => {
     const s = get();
@@ -501,7 +518,10 @@ export const useLumen = create<LumenStore>((set, get) => ({
       const reopened = structuredClone(found);
       if (healWorldTheme(reopened)) {
         get().pushLog(`🎨 ${reopened.name} re-dressed for neon streets — no more red dust.`);
-        get().updateWorld(reopened);
+      }
+      const rewired = healCollectGrants(reopened);
+      if (rewired > 0) {
+        get().pushLog(`🔧 ${reopened.name}: ${rewired} pickup${rewired === 1 ? "" : "s"} rewired — collecting now works.`);
       }
       set({ world: reopened });
       return true;
@@ -525,7 +545,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
         const raw = localStorage.getItem(`${SAVE_KEY}:${saveOwner()}:${w.id}`);
         if (raw) {
           const snap = JSON.parse(raw) as ProgressSnapshot;
-          set({ ...snap, playerPos: snap.playerPos ?? [0, 1.7, 6] });
+          set({ ...snap, collectedObjects: snap.collectedObjects ?? [], playerPos: snap.playerPos ?? [0, 1.7, 6] });
         } else {
           set({ ...freshRun() });
         }
@@ -610,7 +630,7 @@ export const useLumen = create<LumenStore>((set, get) => ({
     const s = get();
     const cp = s.checkpoints.find((c) => c.id === id);
     if (!cp) return;
-    set({ ...cp.snapshot, playerPos: cp.snapshot.playerPos ?? [0, 1.7, 6] });
+    set({ ...cp.snapshot, collectedObjects: cp.snapshot.collectedObjects ?? [], playerPos: cp.snapshot.playerPos ?? [0, 1.7, 6] });
     get().pushLog(`Restored checkpoint: ${cp.label}`);
   },
   deleteCheckpoint: (id) => {

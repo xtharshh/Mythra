@@ -46,12 +46,12 @@ function strut(a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Materia
   return m;
 }
 
-function hashStr(s: string): number {
+export function hashStr(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
-function mulberry(seed: number): () => number {
+export function mulberry(seed: number): () => number {
   let a = seed;
   return () => {
     a |= 0; a = (a + 0x6d2B79F5) | 0;
@@ -1264,8 +1264,8 @@ export function createObjectMesh(obj: WorldObject, station = "AURORA BASE"): THR
     case "portal": buildOrb(g, add); break;
     case "scrap": case "resource_node": buildScrap(g, obj.id); break;
     case "survivor": case "npc": buildSurvivor(g, add); break;
-    case "container": buildCrate(g); break;
-    case "landmark": buildObelisk(g); break;
+    case "container": case "crate": buildCrate(g); break;
+    case "landmark": case "obelisk": case "rock": buildObelisk(g); break;
     case "artifact": case "map": case "note": buildOrb(g, add); break;
     case "terminal": case "machine": buildConsole(g, add, station); break;
     case "road": buildRoad(g); break;
