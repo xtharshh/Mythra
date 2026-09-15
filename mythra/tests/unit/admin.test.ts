@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { adminEmails, buildAdminStats, isAdminEmail } from "../../server/admin";
 import { adminLogin, clearAdmin, fetchAdminStats, loadAdmin, saveAdmin } from "../../src/admin/admin";
 
-const ENV = { ADMIN_EMAILS: "Boss@Example.com, crew@example.com ", ADMIN_KEY: "s3cret" } as NodeJS.ProcessEnv;
+const ENV = { ADMIN_EMAILS: "Boss@Example.com, crew@example.com ", ADMIN_KEY: "s3cret" };
 
 describe("admin gate", () => {
   it("parses the allowlist (trim + lowercase, drops empties)", () => {
     expect(adminEmails(ENV)).toEqual(["boss@example.com", "crew@example.com"]);
-    expect(adminEmails({} as NodeJS.ProcessEnv)).toEqual([]);
+    expect(adminEmails({})).toEqual([]);
   });
 
   it("admits allowlisted emails only when a key is configured", () => {
     expect(isAdminEmail("boss@example.com", ENV)).toBe(true);
     expect(isAdminEmail("  CREW@example.com ", ENV)).toBe(true);
     expect(isAdminEmail("stranger@example.com", ENV)).toBe(false);
-    expect(isAdminEmail("boss@example.com", { ADMIN_EMAILS: "boss@example.com" } as NodeJS.ProcessEnv)).toBe(false);
+    expect(isAdminEmail("boss@example.com", { ADMIN_EMAILS: "boss@example.com" })).toBe(false);
     expect(isAdminEmail("", ENV)).toBe(false);
     expect(isAdminEmail(undefined, ENV)).toBe(false);
   });
@@ -78,7 +78,14 @@ describe("admin session", () => {
   });
 
   it("fails soft with no backend", async () => {
-    await expect(adminLogin("a@b.co", "k")).rejects.toThrow(/unreachable/i);
-    await expect(fetchAdminStats("t")).rejects.toThrow(/unreachable/i);
+    // hermetic: never touch a real backend even if one runs locally
+    const realFetch = (globalThis as { fetch?: unknown }).fetch;
+    (globalThis as { fetch?: unknown }).fetch = () => Promise.reject(new Error("down"));
+    try {
+      await expect(adminLogin("a@b.co", "k")).rejects.toThrow(/unreachable/i);
+      await expect(fetchAdminStats("t")).rejects.toThrow(/unreachable/i);
+    } finally {
+      (globalThis as { fetch?: unknown }).fetch = realFetch;
+    }
   });
 });

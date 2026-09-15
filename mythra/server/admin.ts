@@ -37,15 +37,27 @@ export interface AdminStats {
   topPlayers: AdminPlayerRow[];
 }
 
+/** Env bag without needing node types (the web build typechecks this file). */
+export type Env = { [k: string]: string | undefined };
+
+function readEnv(): Env {
+  try {
+    const g = globalThis as unknown as { process?: { env?: Env } };
+    return g.process?.env ?? {};
+  } catch {
+    return {};
+  }
+}
+
 /** Lowercased allowlist from ADMIN_EMAILS ("a@x.co, b@y.co"). */
-export function adminEmails(env: NodeJS.ProcessEnv = process.env): string[] {
+export function adminEmails(env: Env = readEnv()): string[] {
   return String(env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter((e) => e.length > 0);
 }
 
-export function isAdminEmail(email: unknown, env: NodeJS.ProcessEnv = process.env): boolean {
+export function isAdminEmail(email: unknown, env: Env = readEnv()): boolean {
   if (typeof email !== "string") return false;
   const clean = email.trim().toLowerCase();
   if (!clean) return false;
