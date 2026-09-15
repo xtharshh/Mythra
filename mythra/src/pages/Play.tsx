@@ -444,6 +444,8 @@ export default function Play() {
     if (ix.givesItemId) {
       const qty = ix.givesQuantity ?? 1;
       store.collect(ix.givesItemId, qty);
+      // one node = one pickup: the collected piece vanishes from the world
+      store.collectObject(obj.id);
       const total = useLumen.getState().inventory[ix.givesItemId] ?? qty;
       const label = world.resources.find((r) => r.id === ix.givesItemId)?.name ?? ix.givesItemId;
       store.pushLog(`+${qty} ${label} (now ×${total})`);

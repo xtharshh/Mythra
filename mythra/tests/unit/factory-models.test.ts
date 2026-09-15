@@ -33,8 +33,16 @@ describe("engine animates each model correctly — never generic, never frozen",
   });
 
   it("dead things stay dead (static is correct for scrap/crates/tents)", () => {
-    for (const m of ["scrap", "container", "tent", "helmet"]) {
+    for (const m of ["scrap", "container", "crate", "tent", "helmet"]) {
       expect(tick(m), m).toBeUndefined();
+    }
+  });
+
+  it("resolves populator aliases to real builders (no default-crate fallback)", () => {
+    for (const m of ["crate", "rock", "obelisk", "landmark"]) {
+      const g = createObjectMesh(obj(m));
+      expect(g.children.length, m).toBeGreaterThanOrEqual(3);
+      expect(g.userData.objectId, m).toBe(`t_${m}`);
     }
   });
 

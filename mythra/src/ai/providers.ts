@@ -285,6 +285,8 @@ export function buildWorldPrompt(input: WorldGenerationInput): { system: string;
     "heroes & powers: hero (caped champion figure — mentor, guardian, rival), powerup (floating ability orb — grants power items when collected).",
     "market & people: shop (market stall with striped awning + goods — butcher, grocer, vendor of any trade), plus name people plainly (shopkeeper, vendor, guard, traveler) and they arrive as talking characters.",
     "RULE: every street scene gets road + streetlamp + at least one ride (car/bus/truck); every city scene gets building + billboard; homes get house + furniture. Repeat models across locations for avenues and fleets.",
+    "DENSITY — no empty ground: place ≥12 objects total, ≥2 objects in EVERY location, spread out (no two objects within 2 units unless a set piece). Space skies get scattered rocks + beacons; streets get lamps + rides along the full avenue; stations get signs + benches.",
+    "PICKUPS THAT WORK — every collect_item/deliver_item objective needs real pickups: the granting object MUST carry interaction {kind:'collect', givesItemId (the EXACT item id), givesQuantity:1, prompt}. collect quantity N → place N SEPARATE resource_node objects (one pickup each, never one node granting N). Name nodes after their item ('Fire Crystal shard' grants fire_crystal).",
     "ROAD LAYOUT — roads must form ONE continuous avenue, never scattered slabs: place every road modelId on the SAME x coordinate (x=0), with z centers spaced exactly 6 apart (e.g. -12, -6, 0, 6, 12), rotation [0,0,0], scale [1,1,1]. Line streetlamps and trafficlights at x=-3.2 and x=3.2 using the same z centers. Face buildings at x=±8. COMPLETENESS: a street tale MUST include ≥3 road + ≥3 streetlamp + ≥1 trafficlight + ≥2 rides + ≥1 building — a road prompt with missing pieces is rejected.",
     "METRO LAYOUT — a metro station is ONE connected line, never scattered props: rails on x=0 with z centers spaced exactly 6 apart (the track), platforms at x=±4.5 facing the rails, ticketgates in a row at the concourse end (z = lowest platform z - 8), stationsigns on every platform, tunnels capping the track ends (z = ±(last rail z + 8)). Trains sit ON rails (same x/z, y=0.35). COMPLETENESS: a metro tale MUST include ≥2 rails + ≥1 platform + ≥2 ticketgate + ≥1 train + ≥1 tunnel + ≥1 stationsign. Gate missions with item_owned (ticket) and puzzle_solved (timetable) conditions so Concourse → Gates → Platform → Train → Tunnel unlocks in order.",
     "HEROES & POWERS — for superhero tales, file powers as resource items (flight_cell, strength_serum, blast_core — category energy) placed inside powerup orbs with collect interactions. Structure every hero tale: Origin (collect the first power) → Trials (2 missions spending powers via prerequisites) → Villain lair (locked location, puzzle_condition) → Finale (multi-objective showdown). Name NPC allies and rivals plainly (mentor, inventor, guardian, warlord) with the hero modelId. Showdowns play out as missions + puzzles + repairs — never unwinnable, always hinted.",
@@ -880,6 +882,16 @@ const WEAK_ROAD_WORDS = ["road", "drive", "car", "vehicle", "city", "bus", "sign
 const MARS_WORDS = ["mars", "martian", "colony", "astronaut", "cosmonaut", "rover", "regolith", "olympus", "valles", "sol "];
 const BARREN_THEMES = ["mars", "desert", "post_apocalyptic", "space"];
 
+/** Brief-only road signal: one strong road word, or two weak ones, with no
+ *  Martian words. Used by the mock path, where the baked base story is
+ *  always Mars-flavored and must not veto the brief. Pure. */
+export function briefIsRoadTale(briefText: string): boolean {
+  const hay = briefText.toLowerCase();
+  const strongHit = STRONG_ROAD_WORDS.some((k) => hay.includes(k));
+  const weakHits = WEAK_ROAD_WORDS.filter((k) => hay.includes(k)).length;
+  return (strongHit || weakHits >= 2) && !MARS_WORDS.some((k) => hay.includes(k));
+}
+
 /** A highway tale painted red-dust is a misfiled theme: when the story is
  *  clearly about roads/city/driving and nothing Martian, move it to
  *  cyberpunk (neon streets) before the palette pass. Pure. */
@@ -919,6 +931,128 @@ export function healWorldTheme(world: World): boolean {
   retargetRoadTheme(world, "");
   normalizeEnvironmentForTheme(world);
   return normalizeThemeId(world.theme) !== before;
+}
+
+const norm = (s: unknown): string => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+/** Every item the missions ask for must be pickable in the world. Collects
+ *  all itemIds needed by collect/deliver objectives + item_owned conditions,
+ *  creates any missing resource defs, and wires grant-less `collect`
+ *  interactions (or bare resource_nodes) to the matching item — matched by
+ *  name ("Fire Crystal" ↔ fire_crystal), so "Collect the Fire Crystal 0/1"
+ *  always has something to pick up. Returns the number of objects rewired.
+ *  Pure (mutates the passed world). */
+export function healCollectGrants(world: World): number {
+  const needed = new Map<string, number>();
+  const want = (id: unknown, qty: unknown): void => {
+    const key = String(id ?? "").trim();
+    if (!key) return;
+    const q = typeof qty === "number" && Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1;
+    needed.set(key, Math.max(needed.get(key) ?? 0, q));
+  };
+  for (const m of world.missions ?? []) {
+    for (const o of m.objectives ?? []) {
+      const oo = o as { type?: string; itemId?: unknown; quantity?: unknown };
+      if ((oo.type === "collect_item" || oo.type === "deliver_item") && oo.itemId) want(oo.itemId, oo.quantity);
+    }
+    const walk = (c: unknown): void => {
+      if (!c || typeof c !== "object") return;
+      const cc = c as Record<string, unknown>;
+      if (cc.type === "item_owned" && cc.itemId) want(cc.itemId, cc.quantity);
+      if (Array.isArray(cc.conditions)) cc.conditions.forEach(walk);
+      if (cc.condition) walk(cc.condition);
+    };
+    for (const c of [...(m.prerequisites ?? []), m.startCondition, m.completionCondition]) walk(c);
+  }
+  if (needed.size === 0) return 0;
+  // missing resource defs block validation — file them as plain materials
+  const haveRes = new Set((world.resources ?? []).map((r) => r.id));
+  for (const id of needed.keys()) {
+    if (!haveRes.has(id)) {
+      world.resources.push({
+        id, name: id.replace(/_/g, " "),
+        description: `Salvaged during ${world.name}.`,
+        category: "material", stackable: true, maxStack: 99,
+      });
+    }
+  }
+  const granted = new Set<string>();
+  for (const o of world.objects ?? []) if (o.interaction?.givesItemId) granted.add(o.interaction.givesItemId);
+  for (const m of world.missions ?? []) {
+    for (const r of [...(m.rewards ?? [])]) if (r.itemId) granted.add(r.itemId);
+  }
+  let fixed = 0;
+  for (const [itemId, qty] of needed) {
+    if (granted.has(itemId)) continue;
+    // candidates: collect-kind without a grant, then bare resource_nodes —
+    // best name match first ("Fire Crystal" before a generic crate)
+    const cands = (world.objects ?? []).filter((o) =>
+      (o.interaction?.kind === "collect" && !o.interaction.givesItemId) ||
+      (o.type === "resource_node" && !o.interaction?.givesItemId),
+    );
+    const needles = norm(itemId);
+    cands.sort((a, b) => {
+      const score = (o: typeof a): number => {
+        const hay = norm(o.name) + norm(o.id) + norm(o.modelId);
+        if (hay.includes(needles) || needles.includes(hay.replace(/^(the|a)/, ""))) return 0;
+        if (o.interaction?.kind === "collect") return 1;
+        return 2;
+      };
+      return score(a) - score(b);
+    });
+    // one pickup node per unit wanted (max 8) so each collected piece vanishes separately
+    const nodes = Math.min(Math.max(qty, 1), 8);
+    let assigned = 0;
+    for (const o of cands) {
+      if (assigned >= nodes) break;
+      o.interaction = {
+        ...(o.interaction ?? {}),
+        kind: "collect",
+        givesItemId: itemId,
+        givesQuantity: 1,
+        prompt: o.interaction?.prompt ?? `Collect ${idToLabel(itemId)}`,
+      };
+      fixed++;
+      assigned++;
+    }
+    // still short? clone the best candidate's spot (or the first site) as extra nodes
+    const base = cands[0];
+    const home = world.locations[0];
+    while (assigned < nodes) {
+      const idx = world.objects.length;
+      const at = base ? base.position : home ? home.position : [0, 0.5, 0];
+      world.objects.push({
+        id: `${itemId}_node${idx}`,
+        type: "resource_node",
+        modelId: base?.modelId ?? "scrap",
+        name: `${idToLabel(itemId)} cache`,
+        description: `Salvaged ${idToLabel(itemId)}.`,
+        locationId: base?.locationId ?? home?.id ?? "loc_landing",
+        position: [
+          Math.max(-55, Math.min(55, at[0] + 2 + assigned * 2)),
+          at[1] ?? 0.5,
+          Math.max(-55, Math.min(55, at[2] - 2)),
+        ] as [number, number, number],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
+        interaction: {
+          kind: "collect",
+          givesItemId: itemId,
+          givesQuantity: 1,
+          prompt: `Collect ${idToLabel(itemId)}`,
+        },
+        visibility: "visible",
+      });
+      fixed++;
+      assigned++;
+    }
+    granted.add(itemId);
+  }
+  return fixed;
+}
+
+function idToLabel(id: string): string {
+  return id.replace(/_/g, " ").trim() || id;
 }
 
 /** One chat round with any provider — keys rotate on 429/bad-key/5xx so a
@@ -1066,6 +1200,7 @@ async function generateWorldPlanOnce(cfg: AIConfig, model: string, system: strin
     // highway tales misfiled as Mars → neon streets; then paint the canon
     retargetRoadTheme(parsed, user);
     normalizeEnvironmentForTheme(parsed);
+    healCollectGrants(parsed as World);
   }
   const checked = worldSchema.safeParse(parsed);
   if (!checked.success) {

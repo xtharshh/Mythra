@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { store } from "./db.js";
+import { buildAdminStats, isAdminEmail } from "./admin.js";
 import { avatarUrl, discordAuthUrl, discordConfigured, discordEnv, displayName, exchangeCode, fetchProfile, newState } from "./discord.js";
 import { worldSchema } from "../src/schemas.js";
 import { validateWorld } from "../src/game/engines.js";
@@ -109,7 +110,7 @@ const globalLane = createRateLimiter({ windowMs: 60 * 1000, max: 600 });
 const authLane = createRateLimiter({ windowMs: 60 * 1000, max: 60 });
 app.addHook("onRequest", async (req, reply) => {
   const ip = req.ip || req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() || "unknown";
-  const lane = req.url.startsWith("/api/auth/") ? authLane : globalLane;
+  const lane = req.url.startsWith("/api/auth/") || req.url.startsWith("/api/admin/") ? authLane : globalLane;
   if (!lane.check(ip)) {
     return reply.code(429).send({ error: "Too many requests — slow down for a minute." });
   }
@@ -363,6 +364,28 @@ app.post("/api/rooms/:id/progress", async (req, reply) => {
     finished === true,
   );
   return { ok: true };
+});
+
+// --- admin: allowlisted login + analytics dashboard data ---
+// ADMIN_EMAILS (comma-separated) + ADMIN_KEY live in server env. With either
+// unset, every admin call fails closed — there is no backdoor.
+app.post("/api/admin/login", async (req, reply) => {
+  const { email, key } = (req.body ?? {}) as { email?: unknown; key?: unknown };
+  if (!emailOk(email)) return reply.code(400).send({ error: "Enter a valid email address." });
+  const clean = (email as string).trim().toLowerCase();
+  if (!isAdminEmail(clean) || typeof key !== "string" || !key || key !== process.env.ADMIN_KEY) {
+    return reply.code(401).send({ error: "Not an admin login — check the email and key." });
+  }
+  const token = randomBytes(24).toString("hex");
+  await store.addToken(token, clean);
+  return { token, email: clean };
+});
+
+app.get("/api/admin/stats", async (req, reply) => {
+  const email = await emailOf(req);
+  if (!email || !isAdminEmail(email)) return reply.code(403).send({ error: "Admin only." });
+  const [worlds, boards] = await Promise.all([store.listWorlds(), store.allBoards()]);
+  return buildAdminStats(worlds, boards);
 });
 
 export default app;
